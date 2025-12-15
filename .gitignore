@@ -1,0 +1,52 @@
+# =====================
+# Python / Django
+# =====================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# Django
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+.env
+*.pot
+*.pyc
+__pycache__/
+
+# =====================
+# Docker
+# =====================
+*.env
+*.pid
+*.sock
+*.log
+docker-compose.override.yml
+**/Dockerfile
+
+# =====================
+# VSCode / IDEs
+# =====================
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+
+# =====================
+# OS / Misc
+# =====================
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*.tmp

@@ -1,4 +1,14 @@
 # =====================
+# Environments
+# =====================
+venv/
+.venv/
+env/
+.env
+.python-version
+
+
+# =====================
 # Python / Django
 # =====================
 __pycache__/

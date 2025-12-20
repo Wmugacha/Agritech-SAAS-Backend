@@ -34,9 +34,15 @@ class Membership(models.Model):
     This is where roles and permissions are classified.
     """
 
+    # ---- ROLE CONSTANTS ----
+    ORG_ADMIN = "ORG_ADMIN"
+    AGRONOMIST = "AGRONOMIST"
+    VIEWER = "VIEWER"
+
     ROLE_CHOICES = (
-        ("admin", "Admin"),
-        ("member", "Member"),
+        (ORG_ADMIN, "Organization Admin"),
+        (AGRONOMIST, "Agronomist"),
+        (VIEWER, "Viewer"),
     )
 
     id = models.UUIDField(
@@ -60,7 +66,7 @@ class Membership(models.Model):
     role = models.CharField(
         max_length=20,
         choices=ROLE_CHOICES,
-        default="member"
+        default=VIEWER
     )
 
     created_at = models.DateTimeField(

@@ -10,3 +10,4 @@ class OrganizationAdmin(admin.ModelAdmin):
 class MembershipAdmin(admin.ModelAdmin):
     list_display = ("user", "organization", "role", "created_at")
     list_filter = ("role", "organization")
+    search_fields = ("user__email",)

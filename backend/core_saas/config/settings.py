@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 
     "organizations",
     "accounts",
+    "samples",
     "rest_framework",
 ]
 

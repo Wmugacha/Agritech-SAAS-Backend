@@ -10,6 +10,15 @@ class OrganizationMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Initialize with None so the View doesn't crash
+        request.organization = None
+        request.role = None
+
+        # ALLOW SUPERUSERS TO BYPASS CHECKS FOR ADMIN PANEL
+        if request.user.is_superuser and request.path.startswith('/admin/'):
+            request.organization = None
+            request.role = Membership.ORG_ADMIN # Fake the role so permissions pass
+            return self.get_response(request)
 
         # Only run for authenticated users
         if request.user.is_authenticated:

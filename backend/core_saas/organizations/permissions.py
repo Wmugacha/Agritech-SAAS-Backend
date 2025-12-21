@@ -13,13 +13,17 @@ class BaseOrgPermission(BasePermission):
         if hasattr(request, "role"):
             return request.role
 
-        # Fallback path (tests / edge cases)
-        if request.user and request.user.is_authenticated:
-            try:
-                membership = Membership.objects.get(user=request.user)
-                return membership.role
-            except Membership.DoesNotExist:
-                return None
+        
+        if (
+            request.user
+            and request.user.is_authenticated
+        ):
+            membership = Membership.objects.filter(
+                user=request.user,
+                organization=request.organization,
+            ).first()
+
+            return membership.role if membership else None
 
         return None
 

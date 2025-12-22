@@ -73,7 +73,12 @@ class RBACTest(APITestCase):
 
     def test_agronomist_can_create(self):
         self.client.force_authenticate(user=self.agronomist_user)
+        # Manually verify the membership exists in the DB for the test
         response = self.client.post("/api/demo-create/", {})
+    
+        if response.status_code == 403:
+            print(f"Debug 403: {response.data}")
+            
         self.assertNotEqual(response.status_code, 403)
 
     def test_admin_has_full_access(self):

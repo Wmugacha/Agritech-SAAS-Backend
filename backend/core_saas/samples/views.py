@@ -7,31 +7,11 @@ from organizations.permissions import (
 from .models import SoilSample
 from organizations.models import Membership
 from .serializers import SoilSampleSerializer
-from rest_framework.exceptions import PermissionDenied
 from organizations.utils import get_request_organization
 
 
 class SoilSampleViewSet(viewsets.ModelViewSet):
     serializer_class = SoilSampleSerializer
-    permission_classes = [IsAuthenticated]
-
-    def initial(self, request, *args, **kwargs):
-        """
-        Attach organization and role to the request
-        BEFORE permissions are evaluated.
-        """
-
-        if request.user and request.user.is_authenticated:
-            membership = Membership.objects.filter(user=request.user).first()
-            if membership:
-                request.organization = membership.organization
-                request.role = membership.role
-            else:
-                request.organization = None
-                request.role = None
-
-        super().initial(request, *args, **kwargs)
-
 
     def get_queryset(self):
         """
@@ -42,36 +22,22 @@ class SoilSampleViewSet(viewsets.ModelViewSet):
 
         if not org:
             return SoilSample.objects.none()
-        return SoilSample.objects.filter(organization=org)
+
+        return SoilSample.objects.filter(
+            organization=org).select_related('uploaded_by')
 
     def get_permissions(self):
         """
         Apply RBAC rules per action.
         """
         if self.action == "create":
-            permission_classes = [
-                IsAuthenticated,
-                IsAgronomistOrAdmin,
-            ]
-        else:
-            permission_classes = [
-                IsAuthenticated,
-                IsViewerOrAbove,
-            ]
+            return [IsAuthenticated(), IsAgronomistOrAdmin()]
 
-        return [permission() for permission in permission_classes]
+        return [IsAuthenticated(), IsViewerOrAbove()]
 
     def perform_create(self, serializer):
-        """
-        Automatically assign organization and uploader.
-        Prevents tenant spoofing.
-        """
-
-        org = get_request_organization(self.request)
-        if not org:
-            raise PermissionDenied("User is not part of any organization.")
 
         serializer.save(
-            organization=org,
-            uploaded_by=self.request.user,
+            organization=get_request_organization(self.request),
+            uploaded_by=self.request.user
         )

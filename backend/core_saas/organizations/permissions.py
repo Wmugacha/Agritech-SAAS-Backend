@@ -1,6 +1,6 @@
 from rest_framework.permissions import BasePermission
-from organizations.models import Membership
-
+from .models import Membership
+from .utils import get_request_role
 
 class BaseOrgPermission(BasePermission):
     """
@@ -9,23 +9,7 @@ class BaseOrgPermission(BasePermission):
     """
 
     def get_role(self, request):
-        # Middleware path (normal requests)
-        if hasattr(request, "role"):
-            return request.role
-
-        
-        if (
-            request.user
-            and request.user.is_authenticated
-        ):
-            membership = Membership.objects.filter(
-                user=request.user,
-                organization=request.organization,
-            ).first()
-
-            return membership.role if membership else None
-
-        return None
+        return get_request_role(request)
 
 
 class IsOrgAdmin(BaseOrgPermission):

@@ -31,4 +31,5 @@ urlpatterns = [
     path("api/organizations/", include("organizations.urls")),
     path("api/samples/", include("samples.urls")),
     path('api/subscriptions/', include('subscriptions.urls')),
+    path('api/predict/', include('predictions.urls')),
 ]

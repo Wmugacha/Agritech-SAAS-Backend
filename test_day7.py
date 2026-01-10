@@ -6,30 +6,29 @@ import json
 # CONFIG
 BASE_URL = "http://localhost:8000/api"
 CSV_PATH = "soil_data.xlsx"
-EMAIL = "a@test.com"      # Update with your DB user
-PASSWORD = "password123"  # Update with your DB password
+EMAIL = "wilfredmugacha@gmail.com"
+PASSWORD = "qwerty123456"
 
 def get_auth_token():
     """Login and get JWT"""
-    resp = requests.post(f"{BASE_URL}/token/", data={"email": EMAIL, "password": PASSWORD})
+    resp = requests.post(f"{BASE_URL}/auth/login/", data={"email": EMAIL, "password": PASSWORD})
     if resp.status_code != 200:
         print("❌ Login Failed:", resp.text)
         exit()
     return resp.json()['access']
 
 def run_simulation():
-    print("--- 🚀 Starting Day 7 Simulation ---")
+    print("--- 🚀 Starting Prediction Task ---")
     
     # 1. Load Data
     print(f"📂 Loading CSV: {CSV_PATH}")
-    df = pd.read_csv(CSV_PATH)
+    df = pd.read_excel(CSV_PATH)
     
     # Take the first row
     row = df.iloc[0]
     real_som = row['SOM']
     
     # STRIP the SOM (Answer) and keep only Spectra (Questions)
-    # The spectra are all columns starting from index 1 to end
     spectra_data = row.iloc[1:].tolist()
     
     print(f"📊 Extracted {len(spectra_data)} spectral points.")

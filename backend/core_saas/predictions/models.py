@@ -23,10 +23,9 @@ class SoilAnalysisJob(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
     
     # Scientific Data
-    # We use JSONField because the spectra is an array of floats
     spectra = models.JSONField(help_text="Array of spectral absorbance values")
     
-    # The output from the ML model)
+    # The output from the ML model
     predicted_properties = models.JSONField(null=True, blank=True)
     
     error_message = models.TextField(null=True, blank=True)

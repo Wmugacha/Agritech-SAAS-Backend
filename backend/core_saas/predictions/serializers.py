@@ -24,8 +24,7 @@ class SoilAnalysisJobSerializer(serializers.ModelSerializer):
         if len(value) == 0:
             raise serializers.ValidationError("Spectra array cannot be empty.")
 
-        # Check the first few items to ensure they are numbers (optimization)
-        # In a real heavy app, checking all 1700 might be slow, but for safety we check all here.
+        # Check the first few items to ensure they are numbers (To adjust later for heavier datasets)
         if not all(isinstance(x, (int, float)) for x in value):
             logger.warning("Validation Failed: Spectra contains non-numeric values")
             raise serializers.ValidationError("All spectral values must be numbers.")

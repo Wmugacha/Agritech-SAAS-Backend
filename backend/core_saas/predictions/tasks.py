@@ -24,17 +24,14 @@ def analyze_soil_spectra(job_id):
         # 2. Simulate Model Loading (Heavy I/O)
         time.sleep(3) 
         
-        # 3. Simulate The "Science"
-        # In Day 8, we will load the real .pkl file here.
-        # For now, we create a 'dummy' prediction based on the input data 
-        # so we can prove the data actually flowed through.
+        # 3. Simulation
+        # To load the real model Later.
         spectra = job.spectra
         
-        # Dummy Logic: Calculate mean absorbance as a proxy for SOM
-        # (This is just to prove the worker read the JSON correctly)
+        # Calculate mean absorbance to test
         mean_absorbance = statistics.mean(spectra)
         
-        # Add some random noise to simulate model variance
+        # Random noise to simulate model variance
         predicted_som = (mean_absorbance * 10) + random.uniform(-0.1, 0.1)
         
         logger.info(f"🧪 Prediction complete for Job {job_id}. Calc SOM: {predicted_som}")

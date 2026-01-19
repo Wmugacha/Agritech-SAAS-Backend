@@ -28,7 +28,7 @@ def run_simulation():
     row = df.iloc[0]
     real_som = row['SOM']
     
-    # STRIP the SOM (Answer) and keep only Spectra (Questions)
+    # Strip column 1(lab values)
     spectra_data = row.iloc[1:].tolist()
     
     print(f"📊 Extracted {len(spectra_data)} spectral points.")

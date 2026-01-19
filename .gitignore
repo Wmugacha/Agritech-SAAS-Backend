@@ -60,4 +60,7 @@ Thumbs.db
 *.swp
 *.bak
 *.tmp
-*.xlsx
+
+
+soil_data.xlsx
+soil_model.pkl

@@ -4,6 +4,7 @@ from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from organizations.models import Organization
+from farms.models import Field
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class SoilAnalysisJob(models.Model):
     # Ownership
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='analysis_jobs')
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    field = models.ForeignKey(Field, on_delete=models.SET_NULL, null=True, blank=True, related_name='soil_tests')
     
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
     

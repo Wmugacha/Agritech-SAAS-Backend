@@ -35,11 +35,13 @@ class Membership(models.Model):
     """
 
     # ---- ROLE CONSTANTS ----
+    OWNER = "OWNER"
     ORG_ADMIN = "ORG_ADMIN"
     AGRONOMIST = "AGRONOMIST"
     VIEWER = "VIEWER"
 
     ROLE_CHOICES = (
+        (OWNER, "Owner"),
         (ORG_ADMIN, "Organization Admin"),
         (AGRONOMIST, "Agronomist"),
         (VIEWER, "Viewer"),

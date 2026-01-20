@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "samples",
     'subscriptions',
     'predictions',
+    'farms',
     "rest_framework",
 ]
 

@@ -34,5 +34,14 @@ class SoilAnalysisJob(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    model_version = models.CharField(
+        max_length=50, 
+        blank=True, 
+        help_text="The version of the ML model used for this prediction (e.g., 'v1.0.2')"
+    )
+    
+    # To track if this job counted towards the client quota
+    is_billable = models.BooleanField(default=True)
+
     def __str__(self):
         return f"Job {self.id} - {self.status}"

@@ -9,6 +9,7 @@ class SoilAnalysisJobSerializer(serializers.ModelSerializer):
     predicted_properties = serializers.ReadOnlyField()
     error_message = serializers.ReadOnlyField()
     model_version = serializers.ReadOnlyField()
+    is_billable = serializers.ReadOnlyField()
 
     class Meta:
         model = SoilAnalysisJob

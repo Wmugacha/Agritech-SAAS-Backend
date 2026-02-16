@@ -8,10 +8,11 @@ class SoilAnalysisJobSerializer(serializers.ModelSerializer):
     status = serializers.ReadOnlyField()
     predicted_properties = serializers.ReadOnlyField()
     error_message = serializers.ReadOnlyField()
+    model_version = serializers.ReadOnlyField()
 
     class Meta:
         model = SoilAnalysisJob
-        fields = ['id', 'status', 'spectra', 'predicted_properties', 'error_message', 'created_at']
+        fields = ['id', 'field', 'status', 'spectra', 'predicted_properties', 'error_message', 'model_version', 'is_billable', 'created_at']
 
     def validate_spectra(self, value):
         """
@@ -23,6 +24,10 @@ class SoilAnalysisJobSerializer(serializers.ModelSerializer):
         
         if len(value) == 0:
             raise serializers.ValidationError("Spectra array cannot be empty.")
+
+        # Prevent Memory Overload Attacks
+        if len(value) > 10000:
+             raise serializers.ValidationError("Spectra array exceeds maximum allowed length (10,000).")
 
         # Check the first few items to ensure they are numbers (To adjust later for heavier datasets)
         if not all(isinstance(x, (int, float)) for x in value):

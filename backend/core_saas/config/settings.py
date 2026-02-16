@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'predictions',
     'farms',
     "rest_framework",
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -153,6 +154,8 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # Celery Configuration
@@ -206,4 +209,12 @@ LOGGING = {
             'propagate': True,
         },
     },
+}
+
+# Swagger Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Agritech Soil Intelligence API',
+    'DESCRIPTION': 'API for submitting soil spectra and managing farm data.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }

@@ -21,6 +21,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from predictions.views import DashboardAnalyticsView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -37,4 +38,6 @@ urlpatterns = [
     path('api/subscriptions/', include('subscriptions.urls')),
     path('api/predict/', include('predictions.urls')),
     path('api/agronomy/', include('farms.urls')),
+
+    path('api/analytics/dashboard/', DashboardAnalyticsView.as_view(), name='dashboard-analytics'),
 ]

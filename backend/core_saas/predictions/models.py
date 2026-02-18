@@ -25,7 +25,14 @@ class SoilAnalysisJob(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
     
     # Scientific Data
-    spectra = models.JSONField(help_text="Array of spectral absorbance values")
+    spectra_file = models.FileField(
+        upload_to='spectra_uploads/%Y/%m/', 
+        blank=True, 
+        null=True,
+        help_text="Original CSV file uploaded by the user."
+    )
+
+    spectra = models.JSONField(blank=True, null=True, help_text="Array of spectral absorbance values")
     
     # The output from the ML model
     predicted_properties = models.JSONField(null=True, blank=True)

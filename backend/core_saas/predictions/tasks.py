@@ -39,6 +39,9 @@ def analyze_soil_spectra(job_id):
 
         # --- TIER 2 VALIDATION: SCIENTIFIC CHECKS ---
         spectra_list = job.spectra
+
+        if spectra_list is None:
+            raise ValueError("No spectral data was found in the database. The file parsing may have failed.")
         
         # Dynamically ask the loaded model what shape it expects!
         if hasattr(metrics_model, 'n_features_in_'):

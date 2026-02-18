@@ -12,6 +12,7 @@ from django.db.models import Count, Avg, FloatField
 from django.db.models.functions import Cast
 from django.db.models.fields.json import KeyTextTransform
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class SoilAnalysisViewSet(mixins.CreateModelMixin,
     
     serializer_class = SoilAnalysisJobSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
         org = get_request_organization(self.request)

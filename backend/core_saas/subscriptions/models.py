@@ -43,6 +43,11 @@ class Subscription(models.Model):
         db_index=True
     )
 
+    # Stripe
+    stripe_customer_id = models.CharField(max_length=100, blank=True, null=True)
+    stripe_subscription_id = models.CharField(max_length=100, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
     # To be used later for billing cycles
     current_period_start = models.DateTimeField(null=True, blank=True)
     current_period_end = models.DateTimeField(null=True, blank=True)

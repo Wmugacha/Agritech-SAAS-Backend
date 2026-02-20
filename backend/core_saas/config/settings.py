@@ -226,5 +226,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # --- STRIPE BILLING CONFIGURATION ---
 STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY')
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 STRIPE_PRO_PRICE_ID = os.environ.get('STRIPE_PRO_PRICE_ID')
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')

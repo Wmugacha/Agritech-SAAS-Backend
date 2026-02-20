@@ -44,5 +44,13 @@ services:
     ports:
       - "6379:6379"
 
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    command: "listen --api-key ${STRIPE_SECRET_KEY} --forward-to web:8000/api/subscriptions/webhook/"
+    env_file:
+      - .env
+    depends_on:
+      - web
+
 volumes:
   postgres_data:

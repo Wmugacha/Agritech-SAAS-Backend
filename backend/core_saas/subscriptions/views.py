@@ -9,6 +9,8 @@ from .serializers import SubscriptionSerializer
 from .models import Subscription
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework import serializers
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -20,6 +22,13 @@ class SubscriptionDetailView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Subscription details",
+        description="Returns subscription details for the current organisation",
+        responses={
+            200: SubscriptionSerializer
+        }
+    )
     def get(self, request):
         org = get_request_organization(request)
         if not org:
@@ -37,6 +46,19 @@ class SubscriptionDetailView(APIView):
 class CreateCheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Create Stripe Checkout Session",
+        description="Generates a Stripe hosted checkout URL to upgrade to the PRO plan.",
+        request=None, # JSON body not required for this POST
+        responses={
+            200: inline_serializer(
+                name='CheckoutSessionResponse',
+                fields={
+                    'checkout_url': serializers.URLField()
+                }
+            )
+        }
+    )
     def post(self, request):
         org = get_request_organization(request)
         if not org:

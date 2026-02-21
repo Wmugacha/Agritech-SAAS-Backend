@@ -1,5 +1,5 @@
 import logging
-from rest_framework import viewsets, mixins, status
+from rest_framework import viewsets, mixins, status, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from organizations.utils import get_request_organization
@@ -13,6 +13,7 @@ from django.db.models.functions import Cast
 from django.db.models.fields.json import KeyTextTransform
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,21 @@ class SoilAnalysisViewSet(mixins.CreateModelMixin,
 class DashboardAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Get Dashboard Analytics",
+        description="Returns aggregated soil statistics for the organization's dashboard.",
+        responses={
+            200: inline_serializer(
+                name='DashboardAnalyticsResponse',
+                fields={
+                    'total_samples_all_time': serializers.IntegerField(),
+                    'total_samples_this_month': serializers.IntegerField(),
+                    'average_som': serializers.FloatField(),
+                    'jobs_by_status': serializers.ListField(child=serializers.DictField()),
+                }
+            )
+        }
+    )
     def get(self, request):
         # Get the user's organization context
         org = get_request_organization(request)

@@ -48,10 +48,13 @@ INSTALLED_APPS = [
     'farms',
     "rest_framework",
     'drf_spectacular',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -228,4 +231,16 @@ STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY')
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 STRIPE_PRO_PRICE_ID = os.environ.get('STRIPE_PRO_PRICE_ID')
+
+# --- CORS CONFIGURATION ---
+# This allows your React frontend (e.g., localhost:3000) to talk to the API
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+CORS_ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+]
+
+# --- STATIC FILES (WhiteNoise) ---
+# Tell Django where to gather all static files for production
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# Tell WhiteNoise to compress the files and cache them for speed
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

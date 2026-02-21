@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: backend/infra/Dockerfile
-    command: python backend/core_saas/manage.py runserver 0.0.0.0:8000
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --chdir backend/core_saas
     volumes:
       - .:/app
     ports:

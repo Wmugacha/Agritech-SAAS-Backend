@@ -2,9 +2,9 @@ import logging
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, NotFound
-from organizations.utils import get_request_organization
-from .models import Farm, Field
-from .serializers import FarmSerializer, FieldSerializer
+from organizations.utils import get_request_organization, get_request_role
+from .models import Farm, Field, CropSeason, FarmActivity
+from .serializers import FarmSerializer, FieldSerializer, CropSeasonSerializer, FarmActivitySerializer
 from organizations.models import Membership
 
 logger = logging.getLogger(__name__)
@@ -15,27 +15,21 @@ class FarmViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         org = get_request_organization(self.request)
+        role = get_request_role(self.request)
+
         if not org:
             return Farm.objects.none()
 
-        user = self.request.user
-
-        # 1. Get the User's Role in this Organization
-        try:
-            membership = Membership.objects.get(user=user, organization=org)
-            user_role = membership.role
-        except Membership.DoesNotExist:
-            return Farm.objects.none()
+        base_qs = Farm.objects.filter(organization=org)
 
         # 2. Logic: Who gets to see what?
         
         # SUPER USERS (Admin & Agronomist) -> See EVERYTHING in the Org
-        if user_role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
-            return Farm.objects.filter(organization=org)
+        if role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
+            return base_qs
         
         # REGULAR USERS (Farmers/Viewers) -> See ONLY their own farms
-        else:
-            return Farm.objects.filter(organization=org, owner=user)
+        return base_qs.filter(owner=self.request.user)
 
     def perform_create(self, serializer):
         org = get_request_organization(self.request)
@@ -51,24 +45,18 @@ class FieldViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         org = get_request_organization(self.request)
+        role = get_request_role(self.request)
         if not org:
-            return Field.objects.none()
-        
-        # 2. FIX: Apply the same "Owner vs Admin" logic to Fields
-        user = self.request.user
-        try:
-            membership = Membership.objects.get(user=user, organization=org)
-            user_role = membership.role
-        except Membership.DoesNotExist:
-            return Field.objects.none()
+            return Field.objects.none()   
+
+        base_qs = Field.objects.filter(farm__organization=org)
 
         # If Admin/Agronomist, see ALL fields in the org
-        if user_role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
-            return Field.objects.filter(farm__organization=org)
+        if role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
+            return base_qs
         
         # If Farmer, see ONLY fields on farms they own
-        else:
-            return Field.objects.filter(farm__organization=org, farm__owner=user)
+        return base_qs.filter(farm__owner=self.request.user)
     
     def perform_create(self, serializer):        
         # Get the farm the user is trying to add this field to
@@ -77,6 +65,7 @@ class FieldViewSet(viewsets.ModelViewSet):
         
         # Check if the user owns that farm (unless they are an admin)
         org = get_request_organization(self.request)
+        role = get_request_role(self.request)
         
         # Check if farm is in current org
         if target_farm.organization != org:
@@ -84,12 +73,80 @@ class FieldViewSet(viewsets.ModelViewSet):
 
         # Check if user owns the farm OR is an Admin/Agronomist
         is_owner = target_farm.owner == user
-        
-        # Fetch role
-        membership = Membership.objects.get(user=user, organization=org)
-        is_privileged = membership.role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']
+        is_privileged = role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']
 
         if not is_owner and not is_privileged:
             raise PermissionDenied("You do not have permission to add fields to this farm.")
+
+        serializer.save()
+
+class CropSeasonViewSet(viewsets.ModelViewSet):
+    serializer_class = CropSeasonSerializer
+
+    def get_queryset(self):
+        org = get_request_organization(self.request)
+        role = get_request_role(self.request)
+        
+        if not org:
+            return CropSeason.objects.none()
+
+        base_qs = CropSeason.objects.filter(field__farm__organization=org)
+
+        # Admin/Agronomist see all
+        if role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
+            return base_qs
+            
+        # Farmers only see seasons on their own farms
+        return base_qs.filter(field__farm__owner=self.request.user)
+
+    def perform_create(self, serializer):
+        target_field = serializer.validated_data.get('field')
+        user = self.request.user
+        org = get_request_organization(self.request)
+        role = get_request_role(self.request)
+
+        if target_field.farm.organization != org:
+            raise PermissionDenied("Cannot add season to a field in a different organization.")
+
+        is_owner = target_field.farm.owner == user
+        is_privileged = role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']
+
+        if not is_owner and not is_privileged:
+            raise PermissionDenied("You do not have permission to add a season to this field.")
+
+        serializer.save()
+
+
+class FarmActivityViewSet(viewsets.ModelViewSet):
+    serializer_class = FarmActivitySerializer
+
+    def get_queryset(self):
+        org = get_request_organization(self.request)
+        role = get_request_role(self.request)
+        
+        if not org:
+            return FarmActivity.objects.none()
+
+        base_qs = FarmActivity.objects.filter(season__field__farm__organization=org)
+
+        if role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
+            return base_qs
+            
+        return base_qs.filter(season__field__farm__owner=self.request.user)
+
+    def perform_create(self, serializer):
+        target_season = serializer.validated_data.get('season')
+        user = self.request.user
+        org = get_request_organization(self.request)
+        role = get_request_role(self.request)
+
+        if target_season.field.farm.organization != org:
+            raise PermissionDenied("Cannot add activity to a season in a different organization.")
+
+        is_owner = target_season.field.farm.owner == user
+        is_privileged = role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']
+
+        if not is_owner and not is_privileged:
+            raise PermissionDenied("You do not have permission to add an activity to this season.")
 
         serializer.save()

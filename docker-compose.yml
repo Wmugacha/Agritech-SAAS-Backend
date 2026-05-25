@@ -1,5 +1,6 @@
 services:
   web:
+    container_name: Agritech-SAAS
     build:
       context: .
       dockerfile: backend/infra/Dockerfile
@@ -7,17 +8,18 @@ services:
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "8001:8000"
     env_file:
       - .env
     depends_on:
-      - db
       - redis
+    networks:
+      - portfolio-network
 
   worker:
     build:
       context: .
-      dockerfile: backend/infra/Dockerfile 
+      dockerfile: backend/infra/Dockerfile
     working_dir: /app/backend/core_saas
     command: celery -A config worker --loglevel=info
     volumes:
@@ -25,24 +27,16 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
       - redis
-
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - portfolio-network
 
   redis:
     image: redis:7
     ports:
       - "6379:6379"
+    networks:
+      - portfolio-network
 
   stripe-cli:
     image: stripe/stripe-cli:latest
@@ -51,6 +45,9 @@ services:
       - .env
     depends_on:
       - web
+    networks:
+      - portfolio-network
 
-volumes:
-  postgres_data:
+networks:
+  portfolio-network:
+    external: true

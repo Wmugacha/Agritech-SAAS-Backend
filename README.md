@@ -7,7 +7,7 @@ Here is a comprehensive, production-ready `README.md` file tailored specifically
 
 An enterprise-grade, multi-tenant SaaS backend architecture designed for agricultural cooperatives and agribusinesses to manage farm operations, track crop seasons, monitor fertilizer application protocols, and analyze yield targets. Built with Python, Django, and FastAPI, containerized with Docker, and engineered for high availability on AWS.
 
-**[Live Deployment Link](http://51.20.119.5:8001/api/docs/)** | **[API Documentation Link](http://51.20.119.5:8001/api/docs/)**
+[**Live Deployment Link**](http://51.20.119.5:8001/api/docs/) | [**API Documentation Link**](http://51.20.119.5:8001/api/docs/)
 
 ---
 
@@ -174,7 +174,7 @@ This action issues secure, authenticated database pings against core data indice
 
 ## 👥 Contributors & Contact
 
-- **Wilfred Mugwe** - Software Engineer & Backend Developer
+- **Wilfred Mugacha** - Software Engineer & Backend Developer
 - Project Repository: [https://github.com/Wmugacha/Agritech-SAAS-Backend](https://github.com/Wmugacha/Agritech-SAAS-Backend)
 
 ```

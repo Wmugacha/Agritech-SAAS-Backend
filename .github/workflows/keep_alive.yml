@@ -1,9 +1,12 @@
 name: Prevent Supabase Inactivity
 
 on:
+  push:
+    branches:
+      - main
   schedule:
-    - cron: "0 0 * * 0,4" # Runs at midnight UTC every Sunday and Thursday
-  workflow_dispatch: # Allows you to click a button to run it manually
+    - cron: "0 0 * * 0,4"
+  workflow_dispatch:
 
 jobs:
   ping-database:

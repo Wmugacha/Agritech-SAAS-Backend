@@ -1,8 +1,3 @@
-Here is a comprehensive, production-ready `README.md` file tailored specifically for your project. It is structured to showcase high-level architecture, enterprise-level design patterns (like multi-tenancy and RBAC), and advanced DevOps workflows to technical recruiters and open-source contributors.
-
----
-
-````markdown
 # Agritech SaaS Backend API
 
 An enterprise-grade, multi-tenant SaaS backend architecture designed for agricultural cooperatives and agribusinesses to manage farm operations, track crop seasons, monitor fertilizer application protocols, and analyze yield targets. Built with Python, Django, and FastAPI, containerized with Docker, and engineered for high availability on AWS.
@@ -65,6 +60,7 @@ At the core of the platform is a computationally heavy predictive model designed
   ├── Database: Supabase (PostgreSQL)
   └── Payments: Stripe API
 ```
+
 ````
 
 - **Backend Framework:** Python, Django, Django REST Framework (DRF), FastAPI
@@ -177,6 +173,5 @@ This action issues secure, authenticated database pings against core data indice
 - **Wilfred Mugacha** - Software Engineer & Backend Developer
 - Project Repository: [https://github.com/Wmugacha/Agritech-SAAS-Backend](https://github.com/Wmugacha/Agritech-SAAS-Backend)
 
-```
 
-```
+````

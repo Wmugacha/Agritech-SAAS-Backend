@@ -61,8 +61,6 @@ At the core of the platform is a computationally heavy predictive model designed
   └── Payments: Stripe API
 ```
 
-````
-
 - **Backend Framework:** Python, Django, Django REST Framework (DRF), FastAPI
 - **Database & Storage:** PostgreSQL (Supabase), Redis (Caching & Message Broker)
 - **Task Queue:** Celery
@@ -86,7 +84,6 @@ At the core of the platform is a computationally heavy predictive model designed
 ```bash
 git clone [https://github.com/Wmugacha/Agritech-SAAS-Backend.git](https://github.com/Wmugacha/Agritech-SAAS-Backend.git)
 cd Agritech-SAAS-Backend
-
 ```
 
 ### 2. Configure Environment Variables
@@ -113,7 +110,6 @@ REDIS_URL=redis://redis:6379/0
 STRIPE_PUBLIC_KEY=pk_test_...
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-
 ```
 
 ### 3. Build and Run the Application Stack
@@ -122,7 +118,6 @@ Orchestrate the web framework, asynchronous workers, caching instance, and backg
 
 ```bash
 docker-compose up --build
-
 ```
 
 ### 4. Execute Core Database Migrations
@@ -132,7 +127,6 @@ Once your containers are fully operational, construct your structural schemas an
 ```bash
 docker-compose exec web python backend/core_saas/manage.py migrate
 docker-compose exec web python backend/core_saas/manage.py createsuperuser
-
 ```
 
 The server will initialize at `http://localhost:8000`. You can explore interactive API structures inside your browser at `http://localhost:8000/api/docs/`.
@@ -148,7 +142,6 @@ The background `stripe-cli` container communicates directly with your testing da
 ```bash
 # Manually trigger a mock successful subscription event for verification
 docker-compose exec stripe-cli stripe trigger checkout.session.completed
-
 ```
 
 ---
@@ -173,5 +166,6 @@ This action issues secure, authenticated database pings against core data indice
 - **Wilfred Mugacha** - Software Engineer & Backend Developer
 - Project Repository: [https://github.com/Wmugacha/Agritech-SAAS-Backend](https://github.com/Wmugacha/Agritech-SAAS-Backend)
 
+```
 
-````
+```

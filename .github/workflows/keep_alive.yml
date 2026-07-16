@@ -5,15 +5,22 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 0 * * 0,4"
+    # Updated to run daily at midnight UTC to guarantee the DB stays awake
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:
   ping-database:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase API
+      - name: Ping Supabase PostgreSQL (Farms Table)
+        env:
+          # Pulls the direct connection string from GitHub Secrets
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_URL }}
         run: |
-          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/farms_farm?select=id&limit=1" \
-          -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          echo "Connecting to Agritech SAAS to prevent inactivity pause..."
+
+          # Directly queries the farms_farm table bypassing the PostgREST API and RLS
+          psql "$SUPABASE_DB_URL" -c "SELECT id FROM farms_farm LIMIT 1;"
+
+          echo "Database ping successful."

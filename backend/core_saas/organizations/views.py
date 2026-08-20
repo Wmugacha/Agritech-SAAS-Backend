@@ -1,11 +1,40 @@
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from .models import Organization, Membership
 from .serializers import OrganizationSerializer
 from organizations.permissions import IsAgronomistOrAdmin
 from .utils import get_request_organization
+from subscriptions.models import Subscription
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
+
+
+class CreateOrganizationView(APIView):
+    """
+    Allows an authenticated user to create a new Organization and become its OWNER.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrganizationSerializer
+
+    def post(self, request):
+        serializer = OrganizationSerializer(data=request.data)
+        if serializer.is_valid():
+            org = serializer.save()
+            # Assign creator as the OWNER
+            Membership.objects.get_or_create(
+                user=request.user,
+                organization=org,
+                role=Membership.OWNER
+            )
+            # Create a default FREE subscription
+            Subscription.objects.get_or_create(
+                organization=org,
+                defaults={"plan": Subscription.PlanType.FREE, "status": Subscription.Status.ACTIVE}
+            )
+            return Response(OrganizationSerializer(org).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CurrentOrganizationView(APIView):
@@ -53,3 +82,4 @@ class DemoCreateView(APIView):
     
     def put(self, request): # To fix the Admin test failure
         return Response({"detail": "Updated"}, status=200)
+

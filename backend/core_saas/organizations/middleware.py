@@ -6,6 +6,15 @@ class OrganizationMiddleware:
     Attaches organization + role to every authenticated request.
     """
 
+    EXEMPT_PATHS = [
+        "/admin/",
+        "/api/auth/",
+        "/api/docs/",
+        "/api/schema/",
+        "/api/organizations/create/",
+        "/api/subscriptions/webhook/",
+    ]
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -14,10 +23,10 @@ class OrganizationMiddleware:
         request.organization = None
         request.role = None
 
-        # ALLOW SUPERUSERS TO BYPASS CHECKS FOR ADMIN PANEL
-        if request.user.is_superuser and request.path.startswith('/admin/'):
-            request.organization = None
-            request.role = Membership.ORG_ADMIN # Fake the role so permissions pass
+        # Check if the path is exempt from organization requirement
+        if any(request.path.startswith(path) for path in self.EXEMPT_PATHS):
+            if request.user.is_authenticated and request.user.is_superuser:
+                request.role = Membership.ORG_ADMIN
             return self.get_response(request)
 
         # Only run for authenticated users
@@ -38,3 +47,4 @@ class OrganizationMiddleware:
                 )
 
         return self.get_response(request)
+

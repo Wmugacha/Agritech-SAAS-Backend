@@ -223,8 +223,51 @@ LOGGING = {
 
 # Swagger Settings
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Agritech Soil Intelligence API',
-    'DESCRIPTION': 'API for submitting soil spectra and managing farm data.',
+    'TITLE': 'Agritech SaaS Intelligence & Farm Management API',
+    'DESCRIPTION': """
+#  Agritech SaaS Backend API Documentation
+
+Welcome to the **Agritech SaaS Backend API**! This platform provides an enterprise-grade, multi-tenant architecture designed for agricultural cooperatives, agribusinesses, and agronomists to manage farm operations, track crop lifecycle timelines, record agronomic interventions, and run high-performance predictive soil analytics.
+
+---
+
+### Getting Started & Onboarding Flow
+
+Because this platform operates on a **strict multi-tenant architecture**, every action (farms, fields, soil samples, and predictions) must belong to an **Organization** context.
+
+Follow these 4 simple steps to get started:
+
+1. **Register an Account:**
+   - Call `POST /api/accounts/register/` with your `email` and `password`.
+   - The response will return your user record along with initial JWT `access` and `refresh` tokens.
+   - Alternatively, existing users can log in via `POST /api/auth/login/`.
+
+2. **Authorize in Swagger UI:**
+   - Click the **"Authorize"** button (green lock icon) at the top-right of this page.
+   - In the value box, enter your access token in the format:
+     `Bearer YOUR_ACCESS_TOKEN`
+     *(Example: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6...`)*
+   - Click **Authorize** -> **Close**. All requests made from this page will now include your token automatically.
+
+3. **Provision Your Organization (Tenant Workspace):**
+   - Call `POST /api/organizations/create/` with your organization name (e.g., `{"name": "Green Valley Cooperative"}`).
+   - You will automatically be assigned as the **`OWNER`** of this workspace with an active **`FREE`** tier subscription.
+
+4. **Start Managing Farms & Predicting Soil Health:**
+   - Create Farms: `POST /api/agronomy/farms/`
+   - Add Plots/Fields: `POST /api/agronomy/fields/`
+   - Trigger Asynchronous Soil Predictions: `POST /api/predict/`
+
+---
+
+###  Core API Modules
+
+- **Authentication & Accounts (`/api/accounts/` & `/api/auth/`):** User registration, token issuance, refresh cycles, and profile inspection.
+- **Multi-Tenancy & Organizations (`/api/organizations/`):** Workspace provisioning, tenant scoping, and role inspection.
+- **Farms, Fields & Crop Timelines (`/api/agronomy/`):** Geospatial field mapping, planting schedules, target yield tracking, and farm activities.
+- **Soil Sampling & Spectra Analytics (`/api/samples/` & `/api/predict/`):** NPK soil logging and asynchronous machine learning prediction jobs powered by Celery & Redis.
+- **Subscriptions & Monetization (`/api/subscriptions/`):** Stripe B2B billing integration, checkout workflows, and plan tier limits.
+    """,
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }

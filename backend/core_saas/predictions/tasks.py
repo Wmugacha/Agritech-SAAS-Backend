@@ -9,7 +9,7 @@ from .models import SoilAnalysisJob
 logger = logging.getLogger(__name__)
 
 # Model Loading
-CURRENT_MODEL_VERSION = "v1.0.0" # Change to enviroment variable in production
+CURRENT_MODEL_VERSION = "v1.0.0"  # Change to environment variable in production
 MODEL_PATH = os.path.join(settings.BASE_DIR, 'predictions/ml_models/soil_model.pkl')
 try:
     logger.info(f"Loading ML Model from: {MODEL_PATH}")
@@ -23,8 +23,8 @@ except Exception as e:
 @shared_task
 def analyze_soil_spectra(job_id):
     """
-    ML Inference Task.
-    Uses Pre-trained PLS Model to predict SOM.
+    ML Inference Task for Soil Organic Matter (SOM) predictions.
+    Supports batch processing (single or multiple sample rows).
     """
     logger.info(f"Starting Analysis Task for Job {job_id}..........")
     
@@ -37,36 +37,43 @@ def analyze_soil_spectra(job_id):
         job.status = SoilAnalysisJob.Status.RUNNING
         job.save()
 
-        # --- TIER 2 VALIDATION: SCIENTIFIC CHECKS ---
-        spectra_list = job.spectra
+        # 2. Extract & Convert Payload to 2D NumPy Array
+        spectra_payload = job.spectra
 
-        if spectra_list is None:
-            raise ValueError("No spectral data was found in the database. The file parsing may have failed.")
-        
-        # Dynamically ask the loaded model what shape it expects!
-        if hasattr(metrics_model, 'n_features_in_'):
-            expected_features = metrics_model.n_features_in_
-            if len(spectra_list) != expected_features:
-                raise ValueError(
-                    f"Shape mismatch: Model '{CURRENT_MODEL_VERSION}' expects {expected_features} features, "
-                    f"but received {len(spectra_list)}."
-                )
+        if spectra_payload is None:
+            raise ValueError("No spectral data found in job record.")
 
-        # 2. Prepare Data (Inference)
-        # Convert the list to a numpy array and reshape it
-        spectra_array = np.array(job.spectra).reshape(1, -1)
-        
-        # 3. Predict
-        prediction = metrics_model.predict(spectra_array)
-        
-        predicted_som = float(prediction.flatten()[0])
-        #predicted_som = float(prediction[0][0])
-        
-        logger.info(f"🧪 Prediction complete. SOM: {predicted_som}")
+        features_matrix = np.array(spectra_payload, dtype=float)
 
-        # 4. Save Results
+        # Reshape to 2D if single sample (1D list) was provided
+        if features_matrix.ndim == 1:
+            features_matrix = features_matrix.reshape(1, -1)
+
+        # 3. Validation: Validate COLUMN dimension (shape[1]), supporting batch row inputs
+        expected_features = getattr(metrics_model, 'n_features_in_', 2380)
+        n_samples, n_features = features_matrix.shape
+
+        if n_features != expected_features:
+            raise ValueError(
+                f"Shape mismatch: Model '{CURRENT_MODEL_VERSION}' expects {expected_features} columns/features, "
+                f"but received {n_features} columns across {n_samples} sample(s)."
+            )
+
+        # 4. Perform Model Inference
+        predictions = metrics_model.predict(features_matrix)
+        predictions_flat = predictions.flatten().tolist()
+
+        logger.info(f"🧪 Inference complete across {n_samples} sample(s). SOM Predictions: {predictions_flat}")
+
+        # 5. Format & Save Output (single float for single sample, list for batch)
+        if len(predictions_flat) == 1:
+            result_som = round(predictions_flat[0], 3)
+        else:
+            result_som = [round(val, 3) for val in predictions_flat]
+
         job.predicted_properties = {
-            "SOM": round(predicted_som, 3),
+            "SOM": result_som,
+            "sample_count": n_samples,
             "Method": "PLSR_v1"
         }
         job.model_version = CURRENT_MODEL_VERSION

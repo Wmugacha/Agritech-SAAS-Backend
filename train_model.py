@@ -53,7 +53,7 @@ def train():
     if r2 < 0.5:
         print("⚠️  Warning: Model performance is low. Check data scaling.")
     else:
-        print("✅ Model looks good!")
+        print(" Model looks good!")
 
     # 6. Save the Brain
     # ---------------------------------------------------------

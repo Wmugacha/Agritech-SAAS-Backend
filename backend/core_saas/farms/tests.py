@@ -1,9 +1,11 @@
 import pytest
-from rest_framework import status
-from model_bakery import baker
 from django.contrib.auth import get_user_model
-from organizations.models import Membership, Organization
+from model_bakery import baker
+from rest_framework import status
+
 from farms.models import Farm, Field
+from organizations.models import Membership, Organization
+
 
 # --- FIXTURES (Setup Code) ---
 @pytest.fixture
@@ -102,12 +104,16 @@ class TestFarmEndpoints:
         api_client.force_authenticate(user=farmer_user)
         resp = api_client.get('/api/agronomy/farms/')
         assert len(resp.data) == 1
-        assert resp.data[0]['name'] == "My Farm"
+        assert resp.data[0]['id'] == str(farm_own.id)
+        assert resp.data[0]['name'] == farm_own.name
         
-        # 4. Test Admin View (Should see 2)
+        # 4. Test Admin View (Should see both farms)
         api_client.force_authenticate(user=admin_user)
         resp = api_client.get('/api/agronomy/farms/')
         assert len(resp.data) == 2
+        returned_farm_ids = {str(item['id']) for item in resp.data}
+        assert str(farm_own.id) in returned_farm_ids
+        assert str(farm_other.id) in returned_farm_ids
 
 
 @pytest.mark.django_db

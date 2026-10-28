@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Organization, Membership
+
+from .models import Membership, Organization
+
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):

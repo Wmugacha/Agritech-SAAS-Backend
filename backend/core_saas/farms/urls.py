@@ -1,5 +1,6 @@
 from rest_framework.routers import DefaultRouter
-from .views import FarmViewSet, FieldViewSet, CropSeasonViewSet, FarmActivityViewSet
+
+from .views import CropSeasonViewSet, FarmActivityViewSet, FarmViewSet, FieldViewSet
 
 router = DefaultRouter()
 router.register(r'farms', FarmViewSet, basename='farms')

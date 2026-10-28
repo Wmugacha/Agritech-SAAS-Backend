@@ -1,14 +1,15 @@
-from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .models import Organization, Membership
-from .serializers import OrganizationSerializer
-from organizations.permissions import IsAgronomistOrAdmin
-from .utils import get_request_organization
-from subscriptions.models import Subscription
 from drf_spectacular.utils import extend_schema
-from rest_framework import serializers
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from organizations.permissions import IsAgronomistOrAdmin
+from subscriptions.models import Subscription
+
+from .models import Membership
+from .serializers import OrganizationSerializer
+from .utils import get_request_organization
 
 
 class CreateOrganizationView(APIView):

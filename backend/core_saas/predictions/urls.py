@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import SoilAnalysisViewSet, DashboardAnalyticsView
+
+from .views import DashboardAnalyticsView, SoilAnalysisViewSet
 
 router = DefaultRouter()
 router.register(r'', SoilAnalysisViewSet, basename='soil-analysis')

@@ -1,5 +1,6 @@
 from organizations.models import Membership
 
+
 def get_request_organization(request):
     # 1. Check if already there
     if hasattr(request, "organization") and request.organization is not None:

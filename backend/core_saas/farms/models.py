@@ -1,7 +1,10 @@
 import uuid
-from django.db import models
-from organizations.models import Organization
+
 from django.conf import settings
+from django.db import models
+
+from organizations.models import Organization
+
 
 class Farm(models.Model):
     """

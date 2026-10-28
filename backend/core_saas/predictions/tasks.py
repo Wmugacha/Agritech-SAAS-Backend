@@ -1,9 +1,11 @@
 import logging
-import joblib
 import os
+
+import joblib
 import numpy as np
-from django.conf import settings
 from celery import shared_task
+from django.conf import settings
+
 from .models import SoilAnalysisJob
 
 logger = logging.getLogger(__name__)

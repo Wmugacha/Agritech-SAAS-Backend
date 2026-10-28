@@ -1,23 +1,25 @@
 import logging
-import pandas as pd
+
 import numpy as np
-from scipy.interpolate import interp1d
-from rest_framework import viewsets, mixins, status, serializers
-from rest_framework.response import Response
+import pandas as pd
+from django.db.models import Avg, Count, FloatField
+from django.db.models.fields.json import KeyTextTransform
+from django.db.models.functions import Cast
+from django.utils import timezone
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import mixins, serializers, status, viewsets
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from scipy.interpolate import interp1d
+
 from organizations.utils import get_request_organization
 from subscriptions.utils import check_subscription_limit
+
 from .models import SoilAnalysisJob
-from .serializers import SoilAnalysisJobSerializer, SoilAnalysisJobListSerializer
+from .serializers import SoilAnalysisJobListSerializer, SoilAnalysisJobSerializer
 from .tasks import analyze_soil_spectra
-from django.utils import timezone
-from django.db.models import Count, Avg, FloatField
-from django.db.models.functions import Cast
-from django.db.models.fields.json import KeyTextTransform
-from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from drf_spectacular.utils import extend_schema, inline_serializer
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +157,7 @@ class SoilAnalysisViewSet(mixins.CreateModelMixin,
             )
         except Exception as e:
             logger.error(f"Data processing error: {e}")
-            return Response({"detail": f"Failed to process spectral data: {str(e)}"}, status=400)
+            return Response({"detail": f"Failed to process spectral data: {e!s}"}, status=400)
 
         # 4. Save Job with organization and requested_by context
         job = serializer.save(

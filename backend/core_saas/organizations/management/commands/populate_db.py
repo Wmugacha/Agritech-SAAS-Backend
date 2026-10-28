@@ -1,17 +1,17 @@
-import uuid
 import random
 import time
+import uuid
 from datetime import timedelta
-from django.core.management.base import BaseCommand
-from django.db import transaction
-from django.utils import timezone
-from django.contrib.auth import get_user_model
 
-from organizations.models import Organization, Membership
-from subscriptions.models import Subscription
-from farms.models import Farm, Field, CropSeason, FarmActivity
-from samples.models import SoilSample
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+
+from farms.models import CropSeason, Farm, FarmActivity, Field
+from organizations.models import Membership, Organization
 from predictions.models import SoilAnalysisJob
+from samples.models import SoilSample
+from subscriptions.models import Subscription
 
 User = get_user_model()
 

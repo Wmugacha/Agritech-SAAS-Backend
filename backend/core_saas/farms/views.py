@@ -1,11 +1,18 @@
 import logging
+
 from rest_framework import viewsets
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied, NotFound
+
 from organizations.utils import get_request_organization, get_request_role
-from .models import Farm, Field, CropSeason, FarmActivity
-from .serializers import FarmSerializer, FieldSerializer, CropSeasonSerializer, FarmActivitySerializer
-from organizations.models import Membership
+
+from .models import CropSeason, Farm, FarmActivity, Field
+from .serializers import (
+    CropSeasonSerializer,
+    FarmActivitySerializer,
+    FarmSerializer,
+    FieldSerializer,
+)
 
 logger = logging.getLogger(__name__)
 

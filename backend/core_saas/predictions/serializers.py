@@ -1,5 +1,7 @@
 import logging
+
 from rest_framework import serializers
+
 from .models import SoilAnalysisJob
 
 logger = logging.getLogger(__name__)

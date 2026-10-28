@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Farm, Field, CropSeason, FarmActivity
+
+from .models import CropSeason, Farm, FarmActivity, Field
+
 
 class FieldSerializer(serializers.ModelSerializer):
     class Meta:

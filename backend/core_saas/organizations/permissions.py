@@ -1,6 +1,8 @@
 from rest_framework.permissions import BasePermission
+
 from .models import Membership
 from .utils import get_request_role
+
 
 class BaseOrgPermission(BasePermission):
     """

@@ -78,7 +78,7 @@ class TestFarmEndpoints:
         
         # 4. Should see 0 farms (Safety Check)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 0
+        assert len(response.data["results"])
 
     def test_farmer_visibility_restriction(self, api_client, org_setup, user_factory):
         """

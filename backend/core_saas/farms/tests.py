@@ -64,7 +64,7 @@ class TestFarmEndpoints:
     def test_farm_isolation(self, api_client, org_setup, user_factory):
         """Test that users cannot see farms from other organizations."""
         # 1. Setup Farm in Org A
-        farm_a = baker.make(Farm, organization=org_setup['org'], name="Org A Farm")
+        baker.make(Farm, organization=org_setup['org'], name="Org A Farm")
         
         # 2. Setup User in Org B (Different Company)
         user_b = user_factory(email="b@other.com")
@@ -78,7 +78,7 @@ class TestFarmEndpoints:
         
         # 4. Should see 0 farms (Safety Check)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data["results"])
+        assert len(response.data["results"]) == 0
 
     def test_farmer_visibility_restriction(self, api_client, org_setup, user_factory):
         """

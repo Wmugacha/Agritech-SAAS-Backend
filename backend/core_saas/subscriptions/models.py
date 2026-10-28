@@ -1,7 +1,9 @@
-import uuid
 import logging
+import uuid
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
 from organizations.models import Organization
 
 logger = logging.getLogger(__name__)

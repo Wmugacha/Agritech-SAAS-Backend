@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import SubscriptionDetailView, CreateCheckoutSessionView, stripe_webhook
+
+from .views import CreateCheckoutSessionView, SubscriptionDetailView, stripe_webhook
 
 urlpatterns = [
     path('me/', SubscriptionDetailView.as_view(), name='subscription-detail'),

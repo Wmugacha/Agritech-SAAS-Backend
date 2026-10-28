@@ -1,6 +1,8 @@
-from rest_framework.test import APITestCase
 from django.contrib.auth import get_user_model
-from organizations.models import Organization, Membership
+from rest_framework.test import APITestCase
+
+from organizations.models import Membership, Organization
+
 from .models import SoilSample
 
 User = get_user_model()

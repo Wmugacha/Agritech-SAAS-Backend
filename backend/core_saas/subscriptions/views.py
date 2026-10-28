@@ -1,16 +1,19 @@
-import stripe
 import logging
+
+import stripe
 from django.conf import settings
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from organizations.utils import get_request_organization
-from .serializers import SubscriptionSerializer
-from .models import Subscription
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework import serializers
 from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from organizations.utils import get_request_organization
+
+from .models import Subscription
+from .serializers import SubscriptionSerializer
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -104,11 +107,11 @@ def stripe_webhook(request):
         event = stripe.Webhook.construct_event(
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
-    except ValueError as e:
+    except ValueError:
         # Invalid payload
         logger.error("Webhook Error: Invalid payload")
         return HttpResponse(status=400)
-    except stripe.error.SignatureVerificationError as e:
+    except stripe.error.SignatureVerificationError:
         # Invalid signature
         logger.error("Webhook Error: Invalid signature")
         return HttpResponse(status=400)

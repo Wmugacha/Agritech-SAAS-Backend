@@ -1,13 +1,14 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
+
 from organizations.permissions import (
     IsAgronomistOrAdmin,
     IsViewerOrAbove,
 )
-from .models import SoilSample
-from organizations.models import Membership
-from .serializers import SoilSampleSerializer
 from organizations.utils import get_request_organization
+
+from .models import SoilSample
+from .serializers import SoilSampleSerializer
 
 
 class SoilSampleViewSet(viewsets.ModelViewSet):

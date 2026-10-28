@@ -1,3 +1,5 @@
+[![CI](https://github.com/Wmugacha/Agritech-SAAS-Backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Wmugacha/Agritech-SAAS-Backend/actions/workflows/ci.yml)
+
 # Agritech SaaS Backend API
 
 An enterprise-grade, multi-tenant SaaS backend architecture designed for agricultural cooperatives, agribusinesses, and agronomists to manage farm operations, track crop lifecycle timelines, record agronomic interventions, and execute high-performance predictive soil spectroscopy analytics. Built with Python, Django, Django REST Framework, Celery, and Redis, containerized with Docker, and engineered for high availability and enterprise scale.

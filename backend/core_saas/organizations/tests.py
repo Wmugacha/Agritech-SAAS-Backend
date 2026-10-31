@@ -68,20 +68,20 @@ class RBACTest(APITestCase):
 
     def test_viewer_cannot_create(self):
         self.client.force_authenticate(user=self.viewer_user)
-        response = self.client.post("/api/demo-create/", {})
+        response = self.client.post("/api/organizations/demo-create/", {})
         self.assertEqual(response.status_code, 403)
 
     def test_agronomist_can_create(self):
         self.client.force_authenticate(user=self.agronomist_user)
         # Manually verify the membership exists in the DB for the test
-        response = self.client.post("/api/demo-create/", {})
+        response = self.client.post("/api/organizations/demo-create/", {})
     
         if response.status_code == 403:
             print(f"Debug 403: {response.data}")
             
-        self.assertNotEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 201)
 
     def test_admin_has_full_access(self):
         self.client.force_authenticate(user=self.admin_user)
-        response = self.client.put("/api/demo-create/", {})
-        self.assertNotEqual(response.status_code, 403)
+        response = self.client.put("/api/organizations/demo-create/", {})
+        self.assertEqual(response.status_code, 200)

@@ -43,8 +43,13 @@ def process_and_standardize_spectra(request_data, spectra_file=None):
             # Check if file has header row by attempting numeric conversion
             df = pd.read_csv(spectra_file)
             spectra_file.seek(0)
-        except Exception as e:
-            logger.error(f"Error reading CSV file: {e}")
+            has_header = not df.empty
+            if not has_header:
+                # A single row with no header gets parsed as the header; re-read it as data
+                df = pd.read_csv(spectra_file, header=None)
+                spectra_file.seek(0)
+        except (pd.errors.ParserError, pd.errors.EmptyDataError, UnicodeDecodeError, ValueError):
+            logger.exception("Error reading CSV file")
             raise serializers.ValidationError({"spectra_file": "Invalid CSV file format."})
 
         # Drop target 'SOM' column if present (case-insensitive check)
@@ -55,6 +60,8 @@ def process_and_standardize_spectra(request_data, spectra_file=None):
         # Try to parse column names as numeric wavelengths
         raw_cols = df.columns.tolist()
         try:
+            if not has_header:
+                raise ValueError("No header row")
             incoming_wavelengths = np.array([float(str(col).strip()) for col in raw_cols])
         except ValueError:
             # Header row contained text or non-numeric labels; assume uniform spacing across columns
@@ -155,9 +162,9 @@ class SoilAnalysisViewSet(mixins.CreateModelMixin,
                 request.data, 
                 spectra_file=spectra_file
             )
-        except Exception as e:
-            logger.error(f"Data processing error: {e}")
-            return Response({"detail": f"Failed to process spectral data: {e!s}"}, status=400)
+        except (ValueError, KeyError):
+            logger.exception("Spectral processing failed")
+            return Response({"detail": "Could not process spectral data. Check the file format."}, status=400)
 
         # 4. Save Job with organization and requested_by context
         job = serializer.save(

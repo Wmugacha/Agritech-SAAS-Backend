@@ -1,171 +1,175 @@
 import pytest
-from django.contrib.auth import get_user_model
-from model_bakery import baker
-from rest_framework import status
 
-from farms.models import Farm, Field
-from organizations.models import Membership, Organization
+from farms.models import CropSeason, Farm, FarmActivity, Field
+from organizations.models import Membership
+
+FARMS_URL = "/api/agronomy/farms/"
+FIELDS_URL = "/api/agronomy/fields/"
+SEASONS_URL = "/api/agronomy/seasons/"
+ACTIVITIES_URL = "/api/agronomy/activities/"
+
+pytestmark = pytest.mark.django_db
 
 
-# --- FIXTURES (Setup Code) ---
-@pytest.fixture
-def api_client():
-    from rest_framework.test import APIClient
-    return APIClient()
+def ids(response):
+    """The API is paginated, so the items live under "results"."""
+    return {item["id"] for item in response.data["results"]}
 
-@pytest.fixture
-def user_factory(db):
-    """Helper to create users quickly"""
-    def create_user(email="test@example.com"):
-        User = get_user_model()
-        return baker.make(User, email=email)
-    return create_user
 
 @pytest.fixture
-def org_setup(user_factory):
-    """Creates an Org and an Owner ready for testing"""
-    owner = user_factory(email="owner@farm.com")
-    org = baker.make(Organization, name="Test Org")
-    
-    # FIX: Use string 'OWNER' instead of Membership.OWNER
-    baker.make(Membership, user=owner, organization=org, role='OWNER')
-    
-    return {
-        'owner': owner,
-        'org': org
-    }
+def farm(org, owner):
+    return Farm.objects.create(organization=org, owner=owner, name="Rift Valley Estate", location="Nakuru")
 
-# --- TESTS ---
 
-@pytest.mark.django_db
-class TestFarmEndpoints:
-    
-    def test_create_farm_success(self, api_client, org_setup):
-        """Test that an authenticated user can create a farm."""
-        user = org_setup['owner']
-        api_client.force_authenticate(user=user)
-        
+@pytest.fixture
+def field(farm):
+    return Field.objects.create(farm=farm, name="Block A", crop_type="MAIZE", area_hectares=12.5)
+
+
+class TestFarms:
+    def test_requires_auth(self, api_client):
+        assert api_client.get(FARMS_URL).status_code == 401
+
+    def test_create_farm_sets_org_and_owner_from_request(self, client_for, org, owner, other_org):
         payload = {
             "name": "Highland Estate",
             "location": "Nairobi",
-            "total_area_hectares": 100.50
+            "total_area_hectares": "100.50",
+            # Clients must not be able to pick another tenant
+            "organization": str(other_org.id),
         }
-        
-        response = api_client.post('/api/agronomy/farms/', payload)
-        
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.data['name'] == "Highland Estate"
-        
-        # Verify DB links
-        farm = Farm.objects.get(id=response.data['id'])
-        assert farm.organization == org_setup['org']
-        assert farm.owner == user
 
-    def test_farm_isolation(self, api_client, org_setup, user_factory):
-        """Test that users cannot see farms from other organizations."""
-        # 1. Setup Farm in Org A
-        baker.make(Farm, organization=org_setup['org'], name="Org A Farm")
-        
-        # 2. Setup User in Org B (Different Company)
-        user_b = user_factory(email="b@other.com")
-        org_b = baker.make(Organization, name="Org B")
-        # FIX: Use string 'OWNER'
-        baker.make(Membership, user=user_b, organization=org_b, role='OWNER')
-        
-        # 3. User B tries to list farms
-        api_client.force_authenticate(user=user_b)
-        response = api_client.get('/api/agronomy/farms/')
-        
-        # 4. Should see 0 farms (Safety Check)
-        assert response.status_code == status.HTTP_200_OK
-        assert len(response.data["results"]) == 0
+        response = client_for(owner).post(FARMS_URL, payload, format="json")
 
-    def test_farmer_visibility_restriction(self, api_client, org_setup, user_factory):
-        """
-        Test that a generic 'VIEWER' (Farmer) can only see farms they own,
-        while an ADMIN can see everything.
-        """
-        org = org_setup['org']
-        
-        # 1. Setup Users
-        admin_user = org_setup['owner'] # Already OWNER
-        
-        farmer_user = user_factory(email="farmer@farm.com")
-        # FIX: Use string 'VIEWER' instead of Membership.VIEWER
-        baker.make(Membership, user=farmer_user, organization=org, role='VIEWER')
-        
-        # 2. Setup Farms
-        # Farm 1 owned by Farmer
-        farm_own = baker.make(Farm, organization=org, owner=farmer_user, name="My Farm")
-        # Farm 2 owned by Admin
-        farm_other = baker.make(Farm, organization=org, owner=admin_user, name="Other Farm")
-        
-        # 3. Test Farmer View (Should see only 1)
-        api_client.force_authenticate(user=farmer_user)
-        resp = api_client.get('/api/agronomy/farms/')
-        assert len(resp.data) == 1
-        assert resp.data[0]['id'] == str(farm_own.id)
-        assert resp.data[0]['name'] == farm_own.name
-        
-        # 4. Test Admin View (Should see both farms)
-        api_client.force_authenticate(user=admin_user)
-        resp = api_client.get('/api/agronomy/farms/')
-        assert len(resp.data) == 2
-        returned_farm_ids = {str(item['id']) for item in resp.data}
-        assert str(farm_own.id) in returned_farm_ids
-        assert str(farm_other.id) in returned_farm_ids
+        assert response.status_code == 201
+        farm = Farm.objects.get(id=response.data["id"])
+        assert farm.organization == org
+        assert farm.owner == owner
+
+    def test_list_is_paginated(self, client_for, owner, farm):
+        response = client_for(owner).get(FARMS_URL)
+
+        assert response.status_code == 200
+        assert response.data["count"] == 1
+        assert ids(response) == {str(farm.id)}
+
+    def test_user_cannot_see_other_org_farms(self, client_for, farm, other_org, make_member):
+        outsider = make_member(other_org, Membership.OWNER)
+
+        response = client_for(outsider).get(FARMS_URL)
+
+        assert response.status_code == 200
+        assert response.data["count"] == 0
+
+    def test_user_cannot_open_other_org_farm_by_id(self, client_for, farm, other_org, make_member):
+        outsider = make_member(other_org, Membership.OWNER)
+
+        response = client_for(outsider).get(f"{FARMS_URL}{farm.id}/")
+
+        assert response.status_code == 404
+
+    def test_viewer_sees_only_own_farms_admin_sees_all(self, client_for, org, owner, farm, make_member):
+        viewer = make_member(org, Membership.VIEWER)
+        own_farm = Farm.objects.create(organization=org, owner=viewer, name="My Farm", location="Eldoret")
+
+        assert ids(client_for(viewer).get(FARMS_URL)) == {str(own_farm.id)}
+        assert ids(client_for(owner).get(FARMS_URL)) == {str(own_farm.id), str(farm.id)}
+
+    def test_agronomist_sees_all_org_farms(self, client_for, org, farm, make_member):
+        agronomist = make_member(org, Membership.AGRONOMIST)
+
+        assert ids(client_for(agronomist).get(FARMS_URL)) == {str(farm.id)}
 
 
-@pytest.mark.django_db
-class TestFieldEndpoints:
-    
-    def test_create_field_success(self, api_client, org_setup):
-        """Test adding a field to a farm works normally for owners."""
-        user = org_setup['owner']
-        farm = baker.make(Farm, organization=org_setup['org'], owner=user)
-        
-        api_client.force_authenticate(user=user)
-        
-        payload = {
-            "farm": farm.id,
-            "name": "Block A",
-            "crop_type": "MAIZE",
-            "area_hectares": 10.0
-        }
-        
-        response = api_client.post('/api/agronomy/fields/', payload)
-        
-        assert response.status_code == status.HTTP_201_CREATED
-        assert Field.objects.count() == 1
-        assert Field.objects.first().farm == farm
+class TestFields:
+    def payload(self, farm, **overrides):
+        return {"farm": str(farm.id), "name": "Block B", "crop_type": "BEANS", "area_hectares": "4.00", **overrides}
 
-    def test_create_field_security_check(self, api_client, org_setup, user_factory):
-        """
-        Test that a generic user cannot create a field on a farm they don't own.
-        """
-        org = org_setup['org']
-        
-        # 1. Setup two users in the SAME org
-        # User A (Owner of the farm)
-        user_a = org_setup['owner']
-        farm_a = baker.make(Farm, organization=org, owner=user_a)
-        
-        # User B (Just a viewer/farmer, NOT the owner of this farm)
-        user_b = user_factory(email="thief@farm.com")
-        # FIX: Use string 'VIEWER'
-        baker.make(Membership, user=user_b, organization=org, role='VIEWER')
-        
-        # 2. User B tries to add a field to User A's farm
-        api_client.force_authenticate(user=user_b)
-        
-        payload = {
-            "farm": farm_a.id,
-            "name": "Malicious Field",
-            "crop_type": "MAIZE",
-            "area_hectares": 5.0
-        }
-        
-        response = api_client.post('/api/agronomy/fields/', payload)
-        
-        # 3. Should be Forbidden
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+    def test_owner_can_add_field_to_farm(self, client_for, owner, farm):
+        response = client_for(owner).post(FIELDS_URL, self.payload(farm), format="json")
+
+        assert response.status_code == 201
+        assert Field.objects.get(id=response.data["id"]).farm == farm
+
+    def test_viewer_cannot_add_field_to_someone_elses_farm(self, client_for, org, farm, make_member):
+        viewer = make_member(org, Membership.VIEWER)
+
+        response = client_for(viewer).post(FIELDS_URL, self.payload(farm), format="json")
+
+        assert response.status_code == 403
+        assert not Field.objects.exists()
+
+    def test_cannot_add_field_to_farm_in_other_org(self, client_for, farm, other_org, make_member):
+        outsider = make_member(other_org, Membership.OWNER)
+
+        response = client_for(outsider).post(FIELDS_URL, self.payload(farm), format="json")
+
+        assert response.status_code == 403
+        assert not Field.objects.exists()
+
+    def test_invalid_crop_type_is_rejected(self, client_for, owner, farm):
+        response = client_for(owner).post(FIELDS_URL, self.payload(farm, crop_type="BANANA"), format="json")
+
+        assert response.status_code == 400
+        assert "crop_type" in response.data
+
+
+class TestCropTimeline:
+    """Replaces the old day 14 script: field -> season -> activity -> nested timeline."""
+
+    def test_season_and_activity_show_up_in_timeline(self, client_for, owner, field):
+        client = client_for(owner)
+
+        season = client.post(
+            SEASONS_URL,
+            {
+                "field": field.id,
+                "crop_type": "MAIZE",
+                "season_name": "Long Rains 2026",
+                "status": "GROWING",
+                "planting_date": "2026-03-01",
+                "target_yield_kg": "4500.00",
+            },
+            format="json",
+        )
+        assert season.status_code == 201
+
+        activity = client.post(
+            ACTIVITIES_URL,
+            {
+                "season": season.data["id"],
+                "activity_type": "FERTILIZER",
+                "activity_date": "2026-03-15",
+                "description": "DAP top dressing",
+                "cost": "3500.00",
+            },
+            format="json",
+        )
+        assert activity.status_code == 201
+
+        timeline = client.get(f"{SEASONS_URL}{season.data['id']}/")
+        assert timeline.status_code == 200
+        assert [a["activity_type"] for a in timeline.data["activities"]] == ["FERTILIZER"]
+
+    def test_viewer_cannot_add_season_to_someone_elses_field(self, client_for, org, field, make_member):
+        viewer = make_member(org, Membership.VIEWER)
+
+        response = client_for(viewer).post(
+            SEASONS_URL, {"field": field.id, "season_name": "Short Rains 2026"}, format="json"
+        )
+
+        assert response.status_code == 403
+        assert not CropSeason.objects.exists()
+
+    def test_viewer_cannot_log_activity_on_someone_elses_season(self, client_for, org, field, make_member):
+        season = CropSeason.objects.create(field=field, season_name="Long Rains 2026")
+        viewer = make_member(org, Membership.VIEWER)
+
+        response = client_for(viewer).post(
+            ACTIVITIES_URL,
+            {"season": season.id, "activity_type": "WEEDING", "activity_date": "2026-04-01"},
+            format="json",
+        )
+
+        assert response.status_code == 403
+        assert not FarmActivity.objects.exists()

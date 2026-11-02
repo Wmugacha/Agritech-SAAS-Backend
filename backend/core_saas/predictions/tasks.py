@@ -17,8 +17,8 @@ try:
     logger.info(f"Loading ML Model from: {MODEL_PATH}")
     metrics_model = joblib.load(MODEL_PATH)
     logger.info("ML Model loaded successfully.")
-except Exception as e:
-    logger.error(f"Could not load ML model: {e}")
+except Exception:
+    logger.exception("Could not load ML model")
     metrics_model = None
 
 
@@ -31,13 +31,14 @@ def analyze_soil_spectra(job_id):
     logger.info(f"Starting Analysis Task for Job {job_id}..........")
     
     try:
-        if metrics_model is None:
-            raise Exception("ML Model is not loaded on the worker.")
-
         # 1. Fetch Job
         job = SoilAnalysisJob.objects.get(id=job_id)
         job.status = SoilAnalysisJob.Status.RUNNING
         job.save()
+        
+        if metrics_model is None:
+            raise RuntimeError("ML model is not loaded on the worker.")
+
 
         # 2. Extract & Convert Payload to 2D NumPy Array
         spectra_payload = job.spectra

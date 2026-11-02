@@ -1,5 +1,9 @@
 import logging
 
+from django.utils import timezone
+
+from predictions.models import SoilAnalysisJob
+
 from .models import Subscription
 
 logger = logging.getLogger(__name__)
@@ -23,10 +27,28 @@ def check_subscription_limit(organization, feature_slug="predictions"):
     if sub.status != Subscription.Status.ACTIVE:
         return False, "Subscription is not active"
 
-    # Check existence. 
     limit = sub.limits.get(feature_slug, 0)
-    
-    # log the check. 
-    logger.info(f"Checking limit for {organization.name}: Plan {sub.plan} allows {limit} {feature_slug}")
+    used = get_monthly_usage(organization, feature_slug)
+
+    logger.info(f"Checking limit for {organization.name}: Plan {sub.plan} used {used}/{limit} {feature_slug}")
+
+    if used >= limit:
+        return False, f"{sub.get_plan_display()} allows {limit} {feature_slug} per month"
 
     return True, "OK"
+
+
+def get_monthly_usage(organization, feature_slug="predictions"):
+    """
+    Counts billable usage since the start of the current calendar month.
+    Failed jobs are marked is_billable=False by the worker, so they don't count.
+    """
+    if feature_slug != "predictions":
+        return 0
+
+    month_start = timezone.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return SoilAnalysisJob.objects.filter(
+        organization=organization,
+        is_billable=True,
+        created_at__gte=month_start,
+    ).count()

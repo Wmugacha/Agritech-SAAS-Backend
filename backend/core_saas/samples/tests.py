@@ -45,7 +45,7 @@ class SoilSampleAPITest(APITestCase):
             "crop_type": "Maize",
         }
 
-        response = self.client.post("/api/soil-samples/", payload)
+        response = self.client.post("/api/samples/soil-samples/", payload)
         self.assertEqual(response.status_code, 201)
 
     def test_viewer_cannot_create_soil_sample(self):
@@ -56,7 +56,7 @@ class SoilSampleAPITest(APITestCase):
             "ph": 5.9
         }
 
-        response = self.client.post("/api/soil-samples/", payload)
+        response = self.client.post("/api/samples/soil-samples/", payload)
         self.assertEqual(response.status_code, 403)
 
     def test_user_cannot_see_other_org_samples(self):
@@ -68,8 +68,8 @@ class SoilSampleAPITest(APITestCase):
         )
 
         self.client.force_authenticate(self.agronomist)
-        response = self.client.get("/api/soil-samples/")
+        response = self.client.get("/api/samples/soil-samples/")
 
         self.assertEqual(response.status_code, 200)
 
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(response.data["count"], 0)

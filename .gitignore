@@ -64,3 +64,8 @@ Thumbs.db
 soil_data.xlsx
 soil_model.pkl
 endpoints.md
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/

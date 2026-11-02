@@ -27,7 +27,7 @@ class FarmViewSet(viewsets.ModelViewSet):
         if not org:
             return Farm.objects.none()
 
-        base_qs = Farm.objects.filter(organization=org)
+        base_qs = Farm.objects.filter(organization=org).order_by("-created_at")
 
         # 2. Logic: Who gets to see what?
         
@@ -56,7 +56,7 @@ class FieldViewSet(viewsets.ModelViewSet):
         if not org:
             return Field.objects.none()   
 
-        base_qs = Field.objects.filter(farm__organization=org)
+        base_qs = Field.objects.filter(farm__organization=org).order_by("-created_at")
 
         # If Admin/Agronomist, see ALL fields in the org
         if role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
@@ -97,7 +97,7 @@ class CropSeasonViewSet(viewsets.ModelViewSet):
         if not org:
             return CropSeason.objects.none()
 
-        base_qs = CropSeason.objects.filter(field__farm__organization=org)
+        base_qs = CropSeason.objects.filter(field__farm__organization=org).order_by("-created_at")
 
         # Admin/Agronomist see all
         if role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
@@ -134,7 +134,7 @@ class FarmActivityViewSet(viewsets.ModelViewSet):
         if not org:
             return FarmActivity.objects.none()
 
-        base_qs = FarmActivity.objects.filter(season__field__farm__organization=org)
+        base_qs = FarmActivity.objects.filter(season__field__farm__organization=org).order_by("-created_at")
 
         if role in ['OWNER', 'ORG_ADMIN', 'AGRONOMIST']:
             return base_qs

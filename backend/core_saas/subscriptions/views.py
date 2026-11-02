@@ -68,7 +68,7 @@ class CreateCheckoutSessionView(APIView):
             return Response({"error": "Organization context required"}, status=400)
 
         # Get or create the subscription record
-        sub, created = Subscription.objects.get_or_create(organization=org)
+        _sub, _created = Subscription.objects.get_or_create(organization=org)
 
         try:
             # Create a Stripe Checkout Session
@@ -90,8 +90,9 @@ class CreateCheckoutSessionView(APIView):
             # Return the URL to the frontend so it can redirect the user
             return Response({'checkout_url': checkout_session.url})
             
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
+        except stripe.error.StripeError:
+            logger.exception("Stripe checkout failed for org %s", org.id)
+            return Response({"error": "Payment provider error. Try again."}, status=502)
 
 @csrf_exempt
 def stripe_webhook(request):

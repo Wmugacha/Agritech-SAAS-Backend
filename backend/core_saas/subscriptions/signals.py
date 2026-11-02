@@ -22,5 +22,5 @@ def create_default_subscription(sender, instance, created, **kwargs):
                 status=Subscription.Status.ACTIVE
             )
             logger.info(f"✅ Subscription created for Org: {instance.name} (ID: {instance.id})")
-        except Exception as e:
-            logger.error(f"❌ Failed to create subscription for Org {instance.name}: {e}")
+        except Exception:
+            logger.exception("Failed to create subscription for org %s", instance.id)

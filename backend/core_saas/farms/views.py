@@ -2,8 +2,8 @@ import logging
 
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
 
+from organizations.permissions import RoleBasedPermissionsMixin
 from organizations.utils import get_request_organization, get_request_role
 
 from .models import CropSeason, Farm, FarmActivity, Field
@@ -16,9 +16,9 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
-class FarmViewSet(viewsets.ModelViewSet):
+
+class FarmViewSet(RoleBasedPermissionsMixin, viewsets.ModelViewSet):
     serializer_class = FarmSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         org = get_request_organization(self.request)
@@ -46,9 +46,8 @@ class FarmViewSet(viewsets.ModelViewSet):
         # Automatically set the 'owner' to the person creating it
         serializer.save(organization=org, owner=self.request.user)
 
-class FieldViewSet(viewsets.ModelViewSet):
+class FieldViewSet(RoleBasedPermissionsMixin, viewsets.ModelViewSet):
     serializer_class = FieldSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         org = get_request_organization(self.request)
@@ -87,7 +86,7 @@ class FieldViewSet(viewsets.ModelViewSet):
 
         serializer.save()
 
-class CropSeasonViewSet(viewsets.ModelViewSet):
+class CropSeasonViewSet(RoleBasedPermissionsMixin, viewsets.ModelViewSet):
     serializer_class = CropSeasonSerializer
 
     def get_queryset(self):
@@ -124,7 +123,7 @@ class CropSeasonViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
-class FarmActivityViewSet(viewsets.ModelViewSet):
+class FarmActivityViewSet(RoleBasedPermissionsMixin, viewsets.ModelViewSet):
     serializer_class = FarmActivitySerializer
 
     def get_queryset(self):

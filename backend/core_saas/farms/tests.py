@@ -173,3 +173,59 @@ class TestCropTimeline:
 
         assert response.status_code == 403
         assert not FarmActivity.objects.exists()
+
+
+class TestRolePermissions:
+    """Reads need any role, writes need AGRONOMIST or above, deletes need OWNER or ORG_ADMIN."""
+
+    def test_viewer_cannot_create_farm(self, client_for, org, make_member):
+        viewer = make_member(org, Membership.VIEWER)
+
+        response = client_for(viewer).post(FARMS_URL, {"name": "Sneaky Farm", "location": "Kisumu"}, format="json")
+
+        assert response.status_code == 403
+        assert not Farm.objects.exists()
+
+    def test_viewer_can_still_list_farms(self, client_for, org, make_member):
+        viewer = make_member(org, Membership.VIEWER)
+
+        assert client_for(viewer).get(FARMS_URL).status_code == 200
+
+    def test_agronomist_can_create_farm(self, client_for, org, make_member):
+        agronomist = make_member(org, Membership.AGRONOMIST)
+
+        response = client_for(agronomist).post(FARMS_URL, {"name": "Trial Plot", "location": "Kisii"}, format="json")
+
+        assert response.status_code == 201
+
+    def test_viewer_cannot_edit_farm(self, client_for, org, farm, make_member):
+        viewer = make_member(org, Membership.VIEWER)
+
+        response = client_for(viewer).patch(f"{FARMS_URL}{farm.id}/", {"name": "Renamed"}, format="json")
+
+        assert response.status_code == 403
+
+    def test_agronomist_cannot_delete_farm(self, client_for, org, farm, make_member):
+        agronomist = make_member(org, Membership.AGRONOMIST)
+
+        response = client_for(agronomist).delete(f"{FARMS_URL}{farm.id}/")
+
+        assert response.status_code == 403
+        assert Farm.objects.filter(id=farm.id).exists()
+
+    def test_owner_can_delete_farm(self, client_for, owner, farm):
+        response = client_for(owner).delete(f"{FARMS_URL}{farm.id}/")
+
+        assert response.status_code == 204
+        assert not Farm.objects.filter(id=farm.id).exists()
+
+    def test_user_without_org_is_forbidden(self, client_for, django_user_model):
+        loner = django_user_model.objects.create_user(email="loner@example.com", password="x")
+
+        assert client_for(loner).get(FARMS_URL).status_code == 403
+
+    @pytest.mark.parametrize("url", [FIELDS_URL, SEASONS_URL, ACTIVITIES_URL])
+    def test_viewer_cannot_create_on_any_agronomy_endpoint(self, client_for, org, make_member, url):
+        viewer = make_member(org, Membership.VIEWER)
+
+        assert client_for(viewer).post(url, {}, format="json").status_code == 403

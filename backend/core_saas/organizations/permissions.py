@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission, IsAuthenticated
 
 from .models import Membership
 from .utils import get_request_role
@@ -47,3 +47,21 @@ class IsViewerOrAbove(BaseOrgPermission):
             Membership.VIEWER,
         ]
 
+class RoleBasedPermissionsMixin:
+    """
+    Picks the permission class from the HTTP method:
+    reads need any role, writes need AGRONOMIST or above, deletes need an admin.
+    """
+
+    read_permission_class = IsViewerOrAbove
+    write_permission_class = IsAgronomistOrAdmin
+    delete_permission_class = IsOrgAdmin
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            role_permission = self.read_permission_class
+        elif self.request.method == "DELETE":
+            role_permission = self.delete_permission_class
+        else:
+            role_permission = self.write_permission_class
+        return [IsAuthenticated(), role_permission()]

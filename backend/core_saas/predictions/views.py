@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+from django.db import transaction
 from django.db.models import Avg, Count, FloatField
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
@@ -142,20 +143,11 @@ class SoilAnalysisViewSet(mixins.CreateModelMixin,
             logger.warning("Creation blocked: No organization context.")
             return Response({"detail": "Organization context required"}, status=403)
 
-        # 1. Enforce Subscription Limits
-        allowed, reason = check_subscription_limit(org, "predictions")
-        if not allowed:
-            logger.warning(f"Limit Reached for {org.name}: {reason}")
-            return Response(
-                {"detail": "Usage limit exceeded.", "reason": reason}, 
-                status=403
-            )
-
-        # 2. Validate request serializer structure
+        # 1. Validate request serializer structure
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # 3. Clean, Resample & Standardize Spectral Data Pipeline
+        # 2. Clean, Resample & Standardize Spectral Data Pipeline (outside the lock, it can be slow)
         spectra_file = request.FILES.get('spectra_file')
         try:
             standardized_spectra = process_and_standardize_spectra(
@@ -166,15 +158,26 @@ class SoilAnalysisViewSet(mixins.CreateModelMixin,
             logger.exception("Spectral processing failed")
             return Response({"detail": "Could not process spectral data. Check the file format."}, status=400)
 
-        # 4. Save Job with organization and requested_by context
-        job = serializer.save(
-            organization=org,
-            requested_by=request.user,
-            spectra=standardized_spectra,
-            status=SoilAnalysisJob.Status.PENDING
-        )
+        # 3. Enforce Subscription Limits and save the job in one transaction.
+        # The subscription row lock makes concurrent submits for the same org queue up,
+        # so two requests can't both see "9 of 10 used" and both take the last slot.
+        with transaction.atomic():
+            allowed, reason = check_subscription_limit(org, "predictions", lock=True)
+            if not allowed:
+                logger.warning(f"Limit Reached for {org.name}: {reason}")
+                return Response(
+                    {"detail": "Usage limit exceeded.", "reason": reason},
+                    status=403
+                )
 
-        # 5. Offload to Celery Task
+            job = serializer.save(
+                organization=org,
+                requested_by=request.user,
+                spectra=standardized_spectra,
+                status=SoilAnalysisJob.Status.PENDING
+            )
+
+        # 4. Offload to Celery Task
         logger.info(f"Enqueueing Job {job.id} with {len(standardized_spectra)} sample(s) to Celery...")
         analyze_soil_spectra.delay(job.id)
 

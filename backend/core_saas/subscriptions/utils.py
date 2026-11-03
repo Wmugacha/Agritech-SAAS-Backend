@@ -8,10 +8,15 @@ from .models import Subscription
 
 logger = logging.getLogger(__name__)
 
-def check_subscription_limit(organization, feature_slug="predictions"):
+
+def check_subscription_limit(organization, feature_slug="predictions", lock=False):
     """
     Checks if an organization is allowed to use a feature based on their plan.
     Returns: (bool, str) -> (Allowed?, Reason)
+
+    lock=True takes a row lock on the subscription (SELECT ... FOR UPDATE), so a
+    concurrent request for the same organization waits until this transaction
+    commits. Must be called inside transaction.atomic().
     """
     if not organization:
         logger.warning("Check limit called with no organization")
@@ -19,7 +24,10 @@ def check_subscription_limit(organization, feature_slug="predictions"):
 
     # Efficiently fetch subscription related to org
     try:
-        sub = organization.subscription
+        if lock:
+            sub = Subscription.objects.select_for_update().get(organization=organization)
+        else:
+            sub = organization.subscription
     except Subscription.DoesNotExist:
         logger.error(f"Organization {organization.id} has no subscription!")
         return False, "No active subscription found"

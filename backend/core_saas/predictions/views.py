@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from scipy.interpolate import interp1d
 
+from organizations.permissions import IsViewerOrAbove, RoleBasedPermissionsMixin
 from organizations.utils import get_request_organization
 from subscriptions.utils import check_subscription_limit
 
@@ -110,12 +111,12 @@ def process_and_standardize_spectra(request_data, spectra_file=None):
     return resampled_matrix.tolist()
 
 
-class SoilAnalysisViewSet(mixins.CreateModelMixin,
+class SoilAnalysisViewSet(RoleBasedPermissionsMixin,
+                          mixins.CreateModelMixin,
                           mixins.RetrieveModelMixin,
                           mixins.ListModelMixin,
                           viewsets.GenericViewSet):
-    
-    permission_classes = [IsAuthenticated]
+
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_serializer_class(self):
@@ -186,7 +187,7 @@ class SoilAnalysisViewSet(mixins.CreateModelMixin,
 
 
 class DashboardAnalyticsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsViewerOrAbove]
 
     @extend_schema(
         summary="Get Dashboard Analytics",

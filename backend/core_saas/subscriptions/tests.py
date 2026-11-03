@@ -1,16 +1,20 @@
 import hashlib
 import hmac
 import json
+import threading
 import time
 from datetime import timedelta
 from unittest import mock
 
 import pytest
+from django.db import connection
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from organizations.models import Membership
 from predictions import tasks
 from predictions.models import SoilAnalysisJob
+from subscriptions import utils
 from subscriptions.models import Subscription
 
 SUBSCRIPTION_URL = "/api/subscriptions/me/"
@@ -191,3 +195,42 @@ class TestPredictionQuota:
 
         assert response.status_code == 403
         assert response.data["reason"] == "Subscription is not active"
+
+
+class TestQuotaConcurrency:
+    """Two submits racing for the last free slot: exactly one may win."""
+
+    @pytest.mark.django_db(transaction=True)
+    def test_concurrent_submits_cannot_both_take_the_last_slot(self, org, owner):
+        SoilAnalysisJob.objects.bulk_create(SoilAnalysisJob(organization=org, spectra=[]) for _ in range(9))
+        real_usage = utils.get_monthly_usage
+
+        def slow_usage(*args, **kwargs):
+            used = real_usage(*args, **kwargs)
+            # Widen the race window: without a lock both requests read 9 here
+            time.sleep(0.5)
+            return used
+
+        status_codes = []
+
+        def submit():
+            try:
+                client = APIClient()
+                client.force_authenticate(user=owner)
+                response = client.post(PREDICT_URL, {"spectra": [0.45] * 2380}, format="json")
+                status_codes.append(response.status_code)
+            finally:
+                # Each thread opens its own DB connection; close it so the test DB can be dropped
+                connection.close()
+
+        with mock.patch.object(utils, "get_monthly_usage", slow_usage), mock.patch.object(
+            tasks.analyze_soil_spectra, "delay"
+        ):
+            threads = [threading.Thread(target=submit) for _ in range(2)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+
+        assert sorted(status_codes) == [201, 403]
+        assert SoilAnalysisJob.objects.filter(organization=org).count() == 10

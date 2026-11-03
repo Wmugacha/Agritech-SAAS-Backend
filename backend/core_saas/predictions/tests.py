@@ -121,6 +121,29 @@ class TestSubmitPrediction:
         assert np.array(job.spectra).shape == (1, N_FEATURES)
 
 
+class TestRolePermissions:
+    def test_viewer_cannot_submit_prediction(self, client_for, org, make_member, enqueue):
+        viewer = make_member(org, Membership.VIEWER)
+
+        response = client_for(viewer).post(PREDICT_URL, {"spectra": [0.45] * N_FEATURES}, format="json")
+
+        assert response.status_code == 403
+        assert not SoilAnalysisJob.objects.exists()
+        enqueue.assert_not_called()
+
+    def test_agronomist_can_submit_prediction(self, client_for, org, make_member, enqueue):
+        agronomist = make_member(org, Membership.AGRONOMIST)
+
+        response = client_for(agronomist).post(PREDICT_URL, {"spectra": [0.45] * N_FEATURES}, format="json")
+
+        assert response.status_code == 201
+
+    def test_viewer_can_list_jobs(self, client_for, org, make_member):
+        viewer = make_member(org, Membership.VIEWER)
+
+        assert client_for(viewer).get(PREDICT_URL).status_code == 200
+
+
 class TestListAndRetrieve:
     def test_list_shows_only_my_org_jobs_without_raw_spectra(self, client_for, org, owner, other_org):
         mine = SoilAnalysisJob.objects.create(organization=org, spectra=[[0.1] * 3])

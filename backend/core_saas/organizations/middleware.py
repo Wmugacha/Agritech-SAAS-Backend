@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 
 from .models import Membership
+from .utils import get_primary_membership
 
 
 class OrganizationMiddleware:
@@ -33,20 +34,16 @@ class OrganizationMiddleware:
 
         # Only run for authenticated users
         if request.user.is_authenticated:
-            try:
-                membership = Membership.objects.select_related(
-                    "organization"
-                ).get(user=request.user)
-
-                # Attach tenant context to request
-                request.organization = membership.organization
-                request.role = membership.role
-
-            except Membership.DoesNotExist:
+            membership = get_primary_membership(request.user)
+            if membership is None:
                 return JsonResponse(
                     {"detail": "User is not assigned to an organization."},
                     status=403
                 )
 
-        return self.get_response(request)
+            # Attach tenant context to request
+             request.organization = membership.organization
+             request.role = membership.role
 
+        return self.get_response(request)
+        

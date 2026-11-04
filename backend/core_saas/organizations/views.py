@@ -20,6 +20,13 @@ class CreateOrganizationView(APIView):
     serializer_class = OrganizationSerializer
 
     def post(self, request):
+        # One organization per user keeps tenant resolution unambiguous
+        if Membership.objects.filter(user=request.user).exists():
+            return Response(
+                {"detail": "You already belong to an organization."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = OrganizationSerializer(data=request.data)
         if serializer.is_valid():
             org = serializer.save()

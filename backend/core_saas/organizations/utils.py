@@ -1,6 +1,19 @@
 from organizations.models import Membership
 
 
+def get_primary_membership(user):
+    """
+    A user belongs to one organization (CreateOrganizationView enforces this).
+    Older data may still have several memberships, so always pick the oldest one:
+    deterministic, and never a MultipleObjectsReturned 500.
+    """
+    return (
+        Membership.objects.select_related("organization")
+        .filter(user=user)
+        .order_by("created_at")
+        .first()
+    )
+
 def get_request_organization(request):
     # 1. Check if already there
     if hasattr(request, "organization") and request.organization is not None:
@@ -8,7 +21,7 @@ def get_request_organization(request):
 
     # 2. If not, find it and ATTACH it
     if request.user and request.user.is_authenticated:
-        membership = Membership.objects.filter(user=request.user).first()
+        membership = get_primary_membership(request.user)
         if membership:
             # This 'patches' the request for the rest of the test/request cycle
             request.organization = membership.organization

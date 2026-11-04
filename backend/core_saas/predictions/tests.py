@@ -112,8 +112,8 @@ class TestSubmitPrediction:
 
     def test_csv_with_wavelength_header_is_accepted(self, client_for, owner, enqueue):
         wavelengths = np.linspace(3999.053, 600.0723, 50)
-        header = ",".join(f"{w:.3f}" for w in wavelengths)  ",SOM"
-        rows = "\n".join(",".join(["0.45"] * 50)  ",3.1" for _ in range(2))
+        header = ",".join(f"{w:.3f}" for w in wavelengths) + ",SOM"
+        rows = "\n".join(",".join(["0.45"] * 50) + ",3.1" for _ in range(2))
         upload = csv_upload(f"{header}\n{rows}\n")
 
         response = client_for(owner).post(PREDICT_URL, {"spectra_file": upload}, format="multipart")
@@ -125,7 +125,7 @@ class TestSubmitPrediction:
 
     def test_headerless_csv_keeps_its_only_row(self, client_for, owner, enqueue):
         # The old day 12 script wrote one row and no header
-        upload = csv_upload(",".join(["0.45"] * N_FEATURES)  "\n")
+        upload = csv_upload(",".join(["0.45"] * N_FEATURES) + "\n")
 
         response = client_for(owner).post(PREDICT_URL, {"spectra_file": upload}, format="multipart")
 

@@ -104,7 +104,9 @@ class TestFields:
 
         response = client_for(outsider).post(FIELDS_URL, self.payload(farm), format="json")
 
-        assert response.status_code == 403
+        # Same error as a farm id that doesn't exist, so the other tenant's farm isn't revealed
+        assert response.status_code == 400
+        assert "farm" in response.data
         assert not Field.objects.exists()
 
     def test_invalid_crop_type_is_rejected(self, client_for, owner, farm):
@@ -229,3 +231,90 @@ class TestRolePermissions:
         viewer = make_member(org, Membership.VIEWER)
 
         assert client_for(viewer).post(url, {}, format="json").status_code == 403
+
+
+@pytest.fixture
+def their_field(other_org):
+    """A farm, field and season that belong to another organization."""
+    farm = Farm.objects.create(organization=other_org, name="Their Farm", location="Thika")
+    return Field.objects.create(farm=farm, name="Their Block", crop_type="TEA", area_hectares=3)
+
+
+class TestCrossOrgForeignKeys:
+    """Every foreign key in a request body must point at our own organization, on create AND update."""
+
+    def test_field_cannot_be_moved_to_other_org_farm(self, client_for, owner, field, their_field):
+        response = client_for(owner).patch(
+            f"{FIELDS_URL}{field.id}/", {"farm": str(their_field.farm.id)}, format="json"
+        )
+
+        assert response.status_code == 400
+        assert "farm" in response.data
+        field.refresh_from_db()
+        assert field.farm.organization == owner.memberships.get().organization
+
+    def test_season_cannot_be_created_on_other_org_field(self, client_for, owner, their_field):
+        response = client_for(owner).post(
+            SEASONS_URL, {"field": their_field.id, "season_name": "Long Rains 2026"}, format="json"
+        )
+
+        assert response.status_code == 400
+        assert "field" in response.data
+        assert not CropSeason.objects.exists()
+
+    def test_season_cannot_be_moved_to_other_org_field(self, client_for, owner, field, their_field):
+        season = CropSeason.objects.create(field=field, season_name="Long Rains 2026")
+
+        response = client_for(owner).patch(f"{SEASONS_URL}{season.id}/", {"field": their_field.id}, format="json")
+
+        assert response.status_code == 400
+        season.refresh_from_db()
+        assert season.field == field
+
+    def test_activity_cannot_be_created_on_other_org_season(self, client_for, owner, their_field):
+        their_season = CropSeason.objects.create(field=their_field, season_name="Short Rains 2026")
+
+        response = client_for(owner).post(
+            ACTIVITIES_URL,
+            {"season": their_season.id, "activity_type": "WEEDING", "activity_date": "2026-04-01"},
+            format="json",
+        )
+
+        assert response.status_code == 400
+        assert "season" in response.data
+        assert not FarmActivity.objects.exists()
+
+    def test_activity_cannot_be_moved_to_other_org_season(self, client_for, owner, field, their_field):
+        season = CropSeason.objects.create(field=field, season_name="Long Rains 2026")
+        their_season = CropSeason.objects.create(field=their_field, season_name="Short Rains 2026")
+        activity = FarmActivity.objects.create(season=season, activity_type="WEEDING", activity_date="2026-04-01")
+
+        response = client_for(owner).patch(
+            f"{ACTIVITIES_URL}{activity.id}/", {"season": their_season.id}, format="json"
+        )
+
+        assert response.status_code == 400
+        activity.refresh_from_db()
+        assert activity.season == season
+
+    def test_farm_can_be_assigned_to_a_member(self, client_for, org, owner, make_member):
+        farmer = make_member(org, Membership.VIEWER)
+
+        response = client_for(owner).post(
+            FARMS_URL, {"name": "Farmer's Plot", "location": "Nyeri", "owner": str(farmer.id)}, format="json"
+        )
+
+        assert response.status_code == 201
+        assert Farm.objects.get(id=response.data["id"]).owner == farmer
+        # ...and the farmer can now see it
+        assert ids(client_for(farmer).get(FARMS_URL)) == {response.data["id"]}
+
+    def test_farm_cannot_be_assigned_to_outsider(self, client_for, owner, other_org, make_member):
+        outsider = make_member(other_org, Membership.OWNER)
+
+        response = client_for(owner).post(
+            FARMS_URL, {"name": "Gift", "location": "Nyeri", "owner": str(outsider.id)}, format="json"
+        )
+
+        assert response.status_code == 400
+        assert "owner" in response.data

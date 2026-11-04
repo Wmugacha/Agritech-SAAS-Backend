@@ -4,6 +4,7 @@ import json
 import threading
 import time
 from datetime import timedelta
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -15,7 +16,7 @@ from organizations.models import Membership
 from predictions import tasks
 from predictions.models import SoilAnalysisJob
 from subscriptions import utils
-from subscriptions.models import Subscription
+from subscriptions.models import StripeEvent, Subscription
 
 SUBSCRIPTION_URL = "/api/subscriptions/me/"
 CHECKOUT_URL = "/api/subscriptions/checkout-session/"
@@ -234,3 +235,115 @@ class TestQuotaConcurrency:
 
         assert sorted(status_codes) == [201, 403]
         assert SoilAnalysisJob.objects.filter(organization=org).count() == 10
+
+
+STRIPE_EVENTS_DIR = Path(__file__).parent / "test_data" / "stripe"
+
+
+def stored_event(name, **object_overrides):
+    """Load a stored Stripe event payload, optionally overriding fields on data.object."""
+    event = json.loads((STRIPE_EVENTS_DIR / f"{name}.json").read_text())
+    event["data"]["object"].update(object_overrides)
+    return event
+
+
+@pytest.fixture
+def pro_sub(org):
+    sub = Subscription.objects.get(organization=org)
+    sub.plan = Subscription.PlanType.PRO
+    sub.stripe_customer_id = "cus_test123"
+    sub.stripe_subscription_id = "sub_test123"
+    sub.save()
+    return sub
+
+
+class TestSubscriptionLifecycleWebhooks:
+    def test_payment_failure_marks_subscription_past_due(self, api_client, pro_sub):
+        response = signed_webhook(api_client, stored_event("customer.subscription.updated"))
+
+        assert response.status_code == 200
+        pro_sub.refresh_from_db()
+        assert pro_sub.status == Subscription.Status.PAST_DUE
+        assert pro_sub.plan == Subscription.PlanType.PRO
+        # Read from items[0], where newer Stripe API versions put it
+        assert pro_sub.current_period_end.timestamp() == 1793078400
+
+    def test_past_due_org_cannot_submit_predictions(self, api_client, client_for, owner, pro_sub):
+        signed_webhook(api_client, stored_event("customer.subscription.updated"))
+
+        with mock.patch.object(tasks.analyze_soil_spectra, "delay"):
+            response = client_for(owner).post(PREDICT_URL, {"spectra": [0.45] * 2380}, format="json")
+
+        assert response.status_code == 403
+        assert response.data["reason"] == "Subscription is not active"
+
+    def test_payment_recovery_reactivates(self, api_client, pro_sub):
+        pro_sub.status = Subscription.Status.PAST_DUE
+        pro_sub.save()
+
+        signed_webhook(api_client, stored_event("customer.subscription.updated", status="active"))
+
+        pro_sub.refresh_from_db()
+        assert pro_sub.status == Subscription.Status.ACTIVE
+
+    def test_cancellation_downgrades_to_free(self, api_client, pro_sub):
+        response = signed_webhook(api_client, stored_event("customer.subscription.deleted"))
+
+        assert response.status_code == 200
+        pro_sub.refresh_from_db()
+        assert pro_sub.plan == Subscription.PlanType.FREE
+        assert pro_sub.status == Subscription.Status.ACTIVE
+        assert pro_sub.stripe_subscription_id is None
+        assert pro_sub.limits["predictions"] == 10
+
+    def test_late_update_after_cancellation_does_not_reupgrade(self, api_client, pro_sub):
+        signed_webhook(api_client, stored_event("customer.subscription.deleted"))
+
+        # Stripe doesn't guarantee delivery order
+        signed_webhook(api_client, stored_event("customer.subscription.updated", status="active"))
+
+        pro_sub.refresh_from_db()
+        assert pro_sub.plan == Subscription.PlanType.FREE
+
+    def test_unknown_stripe_subscription_is_acknowledged(self, api_client, pro_sub):
+        response = signed_webhook(api_client, stored_event("customer.subscription.deleted", id="sub_unknown"))
+
+        assert response.status_code == 200
+        pro_sub.refresh_from_db()
+        assert pro_sub.plan == Subscription.PlanType.PRO
+
+
+class TestWebhookIdempotency:
+    def test_same_event_delivered_twice_is_processed_once(self, api_client, pro_sub):
+        event = stored_event("customer.subscription.deleted")
+        signed_webhook(api_client, event)
+        # Simulate a later re-upgrade, then a duplicate delivery of the old cancellation
+        pro_sub.refresh_from_db()
+        pro_sub.plan = Subscription.PlanType.PRO
+        pro_sub.stripe_subscription_id = "sub_test123"
+        pro_sub.save()
+
+        response = signed_webhook(api_client, event)
+
+        assert response.status_code == 200
+        pro_sub.refresh_from_db()
+        assert pro_sub.plan == Subscription.PlanType.PRO
+        assert StripeEvent.objects.filter(id=event["id"]).count() == 1
+
+    def test_failed_handler_does_not_record_event_so_stripe_can_retry(self, pro_sub):
+        client = APIClient(raise_request_exception=False)
+        event = stored_event("customer.subscription.deleted")
+
+        with mock.patch.dict(
+            "subscriptions.views.EVENT_HANDLERS",
+            {"customer.subscription.deleted": mock.Mock(side_effect=RuntimeError("boom"))},
+        ):
+            response = signed_webhook(client, event)
+
+        assert response.status_code == 500
+        assert not StripeEvent.objects.filter(id=event["id"]).exists()
+
+        # Stripe retries; this time the handler works
+        assert signed_webhook(client, event).status_code == 200
+        pro_sub.refresh_from_db()
+        assert pro_sub.plan == Subscription.PlanType.FREE

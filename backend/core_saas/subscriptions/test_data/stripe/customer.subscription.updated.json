@@ -1,0 +1,31 @@
+{
+  "id": "evt_1QSubUpdatedTest0001",
+  "object": "event",
+  "api_version": "2025-03-31.basil",
+  "created": 1793000000,
+  "livemode": false,
+  "pending_webhooks": 1,
+  "type": "customer.subscription.updated",
+  "data": {
+    "object": {
+      "id": "sub_test123",
+      "object": "subscription",
+      "customer": "cus_test123",
+      "status": "past_due",
+      "cancel_at_period_end": false,
+      "items": {
+        "object": "list",
+        "data": [
+          {
+            "id": "si_test123",
+            "object": "subscription_item",
+            "current_period_start": 1790400000,
+            "current_period_end": 1793078400,
+            "price": {"id": "price_test_pro", "object": "price", "unit_amount": 2900, "currency": "usd"}
+          }
+        ]
+      }
+    },
+    "previous_attributes": {"status": "active"}
+  }
+}

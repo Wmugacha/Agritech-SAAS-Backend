@@ -1,7 +1,9 @@
+import pytest
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APITestCase
 
+from .middleware import OrganizationMiddleware
 from .models import Membership, Organization
 
 User = get_user_model()
@@ -85,3 +87,42 @@ class RBACTest(APITestCase):
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.put("/api/organizations/demo-create/", {})
         self.assertEqual(response.status_code, 200)
+
+# --- pytest-style tests for tenant resolution ---
+
+CREATE_ORG_URL = "/api/organizations/create/"
+
+
+@pytest.mark.django_db
+def test_middleware_picks_oldest_org_for_multi_org_user(make_member, org, other_org):
+    user = make_member(org, Membership.AGRONOMIST)
+    Membership.objects.create(user=user, organization=other_org, role=Membership.OWNER)
+    request = RequestFactory().get("/api/agronomy/farms/")
+    request.user = user
+
+    # Used to raise MultipleObjectsReturned, which surfaced as a 500
+    OrganizationMiddleware(lambda req: req)(request)
+
+    assert request.organization == org
+    assert request.role == Membership.AGRONOMIST
+
+
+@pytest.mark.django_db
+def test_user_without_org_can_create_one(client_for, django_user_model):
+    user = django_user_model.objects.create_user(email="founder@example.com", password="x")
+
+    response = client_for(user).post(CREATE_ORG_URL, {"name": "Founders Co-op"}, format="json")
+
+    assert response.status_code == 201
+    membership = Membership.objects.get(user=user)
+    assert membership.role == Membership.OWNER
+    assert membership.organization.subscription.plan == "FREE"
+
+
+@pytest.mark.django_db
+def test_user_cannot_join_a_second_org_by_creating_one(client_for, owner):
+    response = client_for(owner).post(CREATE_ORG_URL, {"name": "Second Co-op"}, format="json")
+
+    assert response.status_code == 400
+    assert Membership.objects.filter(user=owner).count() == 1
+    assert not Organization.objects.filter(name="Second Co-op").exists()

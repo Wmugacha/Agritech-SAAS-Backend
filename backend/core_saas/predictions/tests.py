@@ -78,6 +78,19 @@ class TestSubmitPrediction:
         assert job.field == field
         enqueue.assert_called_once_with(job.id)
 
+    def test_field_from_another_org_is_rejected(self, client_for, owner, other_org, enqueue):
+        their_farm = Farm.objects.create(organization=other_org, name="Their Farm", location="Thika")
+        their_field = Field.objects.create(farm=their_farm, name="Their Block", crop_type="TEA", area_hectares=3)
+
+        response = client_for(owner).post(
+            PREDICT_URL, {"field": str(their_field.id), "spectra": [0.45] * N_FEATURES}, format="json"
+        )
+
+        assert response.status_code == 400
+        assert "field" in response.data
+        assert not SoilAnalysisJob.objects.exists()
+        enqueue.assert_not_called()
+
     def test_short_spectra_are_resampled_to_model_width(self, client_for, owner, enqueue):
         response = client_for(owner).post(PREDICT_URL, {"spectra": [0.1, 0.2, 0.3, 0.4]}, format="json")
 
@@ -99,8 +112,8 @@ class TestSubmitPrediction:
 
     def test_csv_with_wavelength_header_is_accepted(self, client_for, owner, enqueue):
         wavelengths = np.linspace(3999.053, 600.0723, 50)
-        header = ",".join(f"{w:.3f}" for w in wavelengths) + ",SOM"
-        rows = "\n".join(",".join(["0.45"] * 50) + ",3.1" for _ in range(2))
+        header = ",".join(f"{w:.3f}" for w in wavelengths)  ",SOM"
+        rows = "\n".join(",".join(["0.45"] * 50)  ",3.1" for _ in range(2))
         upload = csv_upload(f"{header}\n{rows}\n")
 
         response = client_for(owner).post(PREDICT_URL, {"spectra_file": upload}, format="multipart")
@@ -112,7 +125,7 @@ class TestSubmitPrediction:
 
     def test_headerless_csv_keeps_its_only_row(self, client_for, owner, enqueue):
         # The old day 12 script wrote one row and no header
-        upload = csv_upload(",".join(["0.45"] * N_FEATURES) + "\n")
+        upload = csv_upload(",".join(["0.45"] * N_FEATURES)  "\n")
 
         response = client_for(owner).post(PREDICT_URL, {"spectra_file": upload}, format="multipart")
 

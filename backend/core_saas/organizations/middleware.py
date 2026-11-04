@@ -42,8 +42,7 @@ class OrganizationMiddleware:
                 )
 
             # Attach tenant context to request
-             request.organization = membership.organization
-             request.role = membership.role
+            request.organization = membership.organization
+            request.role = membership.role
 
         return self.get_response(request)
-        

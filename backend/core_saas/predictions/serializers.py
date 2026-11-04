@@ -2,6 +2,9 @@ import logging
 
 from rest_framework import serializers
 
+from farms.models import Field
+from organizations.fields import OrgScopedPrimaryKeyRelatedField
+
 from .models import SoilAnalysisJob
 
 logger = logging.getLogger(__name__)
@@ -26,6 +29,9 @@ class SoilAnalysisJobListSerializer(serializers.ModelSerializer):
 
 
 class SoilAnalysisJobSerializer(serializers.ModelSerializer):
+    field = OrgScopedPrimaryKeyRelatedField(
+        queryset=Field.objects.all(), org_lookup="farm__organization", required=False, allow_null=True
+    )
     status = serializers.ReadOnlyField()
     predicted_properties = serializers.ReadOnlyField()
     error_message = serializers.ReadOnlyField()

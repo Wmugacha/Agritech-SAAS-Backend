@@ -66,3 +66,19 @@ class Subscription(models.Model):
         if self.plan == self.PlanType.PRO:
             return {"predictions": 1000, "storage_mb": 1000}
         return {"predictions": 10, "storage_mb": 100}
+
+        return {"predictions": 10, "storage_mb": 100}
+
+
+class StripeEvent(models.Model):
+    """
+    Stripe event ids we have already processed.
+    Stripe retries a webhook until it gets a 2xx and may deliver the same event twice,
+    so the webhook records each id and skips ones it has seen.
+    """
+    id = models.CharField(primary_key=True, max_length=255, help_text="Stripe event id (evt_...)")
+    type = models.CharField(max_length=100)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.type} ({self.id})"

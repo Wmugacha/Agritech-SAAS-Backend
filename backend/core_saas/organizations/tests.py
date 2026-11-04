@@ -1,6 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from rest_framework.test import APITestCase
 
 from .middleware import OrganizationMiddleware

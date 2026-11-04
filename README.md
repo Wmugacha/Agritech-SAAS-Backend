@@ -12,7 +12,7 @@ An enterprise-grade, multi-tenant SaaS backend architecture designed for agricul
 
 ### 1. Multi-Tenancy Architecture & RBAC
 
-- **Strict Tenant Isolation:** Middleware-enforced tenant isolation (`OrganizationMiddleware`) guarantees that queries, soil analyses, farms, and records are scoped strictly to the authenticated user's active organization.
+- **Tenant Isolation:** Enforced at the API layer on every request. Each viewset filters its queryset by the authenticated user's organization, every foreign key in a request body (farm, field, season, owner) is validated against that organization on create and update, and other tenants' records return `404`/`400` exactly like ids that don't exist. Each user belongs to one organization. Isolation is covered by tests in `farms/`, `predictions/` and `samples/`. Note: JWT authentication runs inside DRF, after Django middleware, so `OrganizationMiddleware` only attaches tenant context for session-authenticated requests; views resolve the organization themselves.
 - **Tenant Provisioning Workflow:** Seamless self-service registration (`POST /api/accounts/register/`) and organization instantiation (`POST /api/organizations/create/`) automatically grants workspace `OWNER` privileges and provisions a default `FREE` subscription tier.
 - **Role-Based Access Control (RBAC):** Granular permission enforcement distinguishing workspace `OWNER`, `ORG_ADMIN`, `AGRONOMIST`, and `VIEWER` roles across agronomy and prediction endpoints.
 

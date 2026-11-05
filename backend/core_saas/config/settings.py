@@ -179,6 +179,13 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+# ML inference
+ML_MODEL_PATH = os.getenv("ML_MODEL_PATH", os.path.join(BASE_DIR, "predictions/ml_models/soil_model.pkl"))
+ML_MODEL_VERSION = os.getenv("ML_MODEL_VERSION", "v1.0.0")
+# Seconds. The soft limit raises SoftTimeLimitExceeded inside the task so it can mark the job FAILED;
+# the hard limit kills the worker process if the task ignores the soft one.
+ML_TASK_SOFT_TIME_LIMIT = int(os.getenv("ML_TASK_SOFT_TIME_LIMIT", "120"))
+ML_TASK_TIME_LIMIT = int(os.getenv("ML_TASK_TIME_LIMIT", "150"))
 
 LOGGING = {
     'version': 1,

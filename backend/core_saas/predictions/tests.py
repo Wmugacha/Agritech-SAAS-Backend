@@ -2,7 +2,9 @@ from unittest import mock
 
 import numpy as np
 import pytest
+from celery.exceptions import SoftTimeLimitExceeded
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import OperationalError
 
 from farms.models import Farm, Field
 from organizations.models import Membership
@@ -65,10 +67,13 @@ class TestSubmitPrediction:
         assert response.status_code == 403
         enqueue.assert_not_called()
 
-    def test_valid_json_creates_pending_job_and_enqueues_it(self, client_for, org, owner, field, enqueue):
-        response = client_for(owner).post(
-            PREDICT_URL, {"field": str(field.id), "spectra": [0.45] * N_FEATURES}, format="json"
-        )
+    def test_valid_json_creates_pending_job_and_enqueues_it(
+        self, client_for, org, owner, field, enqueue, django_capture_on_commit_callbacks
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            response = client_for(owner).post(
+                PREDICT_URL, {"field": str(field.id), "spectra": [0.45] * N_FEATURES}, format="json"
+            )
 
         assert response.status_code == 201
         assert response.data["status"] == "PENDING"
@@ -77,6 +82,21 @@ class TestSubmitPrediction:
         assert job.requested_by == owner
         assert job.field == field
         enqueue.assert_called_once_with(job.id)
+
+    def test_job_is_enqueued_only_after_commit(
+        self, client_for, owner, enqueue, django_capture_on_commit_callbacks
+    ):
+        # The worker must never receive a job id before the row is committed,
+        # otherwise it can run before the job exists and find nothing.
+        with django_capture_on_commit_callbacks(execute=False) as callbacks:
+            response = client_for(owner).post(PREDICT_URL, {"spectra": [0.45] * N_FEATURES}, format="json")
+
+        assert response.status_code == 201
+        enqueue.assert_not_called()
+        assert len(callbacks) == 1
+
+        callbacks[0]()  # what Django runs right after COMMIT
+        enqueue.assert_called_once_with(SoilAnalysisJob.objects.get().id)
 
     def test_field_from_another_org_is_rejected(self, client_for, owner, other_org, enqueue):
         their_farm = Farm.objects.create(organization=other_org, name="Their Farm", location="Thika")
@@ -180,7 +200,8 @@ class TestAnalyzeTask:
     def make_job(self, org, spectra):
         return SoilAnalysisJob.objects.create(organization=org, spectra=spectra)
 
-    def test_success_stores_prediction(self, org, fake_model):
+    def test_success_stores_prediction(self, org, fake_model, settings):
+        settings.ML_MODEL_VERSION = "v2.1.0"
         job = self.make_job(org, [[0.45] * N_FEATURES])
 
         tasks.analyze_soil_spectra(job.id)
@@ -189,7 +210,8 @@ class TestAnalyzeTask:
         assert job.status == SoilAnalysisJob.Status.SUCCESS
         assert job.predicted_properties["SOM"] == 2.5
         assert job.predicted_properties["sample_count"] == 1
-        assert job.model_version == tasks.CURRENT_MODEL_VERSION
+        # Comes from settings (ML_MODEL_VERSION env var), not a constant in the code
+        assert job.model_version == "v2.1.0"
         assert job.is_billable
 
     def test_batch_returns_one_prediction_per_row(self, org, fake_model):
@@ -221,6 +243,58 @@ class TestAnalyzeTask:
         assert job.is_billable is False
 
 
+class TestTaskReliability:
+    """Retries for transient errors, time limits, and nothing left stuck in RUNNING."""
+
+    def make_job(self, org):
+        return SoilAnalysisJob.objects.create(organization=org, spectra=[[0.45] * N_FEATURES])
+
+    def test_transient_db_error_is_retried_then_succeeds(self, org, fake_model):
+        job = self.make_job(org)
+        real_get = SoilAnalysisJob.objects.get
+
+        with mock.patch.object(
+            SoilAnalysisJob.objects, "get", side_effect=[OperationalError("db blip"), real_get(id=job.id)]
+        ) as get:
+            # apply() runs the task in-process, including its retries (countdowns are skipped)
+            result = tasks.analyze_soil_spectra.apply(args=[job.id])
+
+        assert result.successful()
+        assert get.call_count == 2
+        job.refresh_from_db()
+        assert job.status == SoilAnalysisJob.Status.SUCCESS
+
+    def test_job_fails_and_is_refunded_when_retries_run_out(self, org, fake_model):
+        job = self.make_job(org)
+
+        with mock.patch.object(SoilAnalysisJob.objects, "get", side_effect=OperationalError("db down")) as get:
+            tasks.analyze_soil_spectra.apply(args=[job.id])
+
+        assert get.call_count == tasks.MAX_RETRIES + 1
+        job.refresh_from_db()
+        assert job.status == SoilAnalysisJob.Status.FAILED
+        assert job.is_billable is False
+
+    def test_soft_time_limit_fails_the_job(self, org, monkeypatch):
+        class SlowModel(FakeModel):
+            def predict(self, X):
+                raise SoftTimeLimitExceeded()
+
+        monkeypatch.setattr(tasks, "metrics_model", SlowModel())
+        job = self.make_job(org)
+
+        tasks.analyze_soil_spectra(job.id)
+
+        job.refresh_from_db()
+        assert job.status == SoilAnalysisJob.Status.FAILED
+        assert job.error_message == "Prediction timed out."
+        assert job.is_billable is False
+
+    def test_task_has_time_limits_from_settings(self, settings):
+        assert tasks.analyze_soil_spectra.soft_time_limit == settings.ML_TASK_SOFT_TIME_LIMIT
+        assert tasks.analyze_soil_spectra.time_limit == settings.ML_TASK_TIME_LIMIT
+
+
 class TestDashboard:
     def test_aggregates_my_org_jobs(self, client_for, org, owner, field, other_org):
         SoilAnalysisJob.objects.create(
@@ -241,6 +315,14 @@ class TestDashboard:
         by_status = {row["status"]: row["total"] for row in response.data["jobs_by_status"]}
         assert by_status == {"SUCCESS": 2, "FAILED": 1}
 
+    def test_jobs_without_a_field_are_counted(self, client_for, org, owner):
+        SoilAnalysisJob.objects.create(organization=org, status="SUCCESS", predicted_properties={"SOM": 4.0})
+
+        response = client_for(owner).get(DASHBOARD_URL)
+
+        assert response.data["total_samples_all_time"] == 1
+        assert response.data["average_som"] == 4.0
+        
     def test_viewer_can_read_dashboard(self, client_for, org, make_member):
         viewer = make_member(org, Membership.VIEWER)
 

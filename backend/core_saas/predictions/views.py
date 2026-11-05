@@ -178,9 +178,10 @@ class SoilAnalysisViewSet(RoleBasedPermissionsMixin,
                 status=SoilAnalysisJob.Status.PENDING
             )
 
-        # 4. Offload to Celery Task
-        logger.info(f"Enqueueing Job {job.id} with {len(standardized_spectra)} sample(s) to Celery...")
-        analyze_soil_spectra.delay(job.id)
+            # 4. Offload to Celery only after COMMIT, so the worker can never pick up
+            # a job id whose row isn't visible yet (or was rolled back)
+            logger.info(f"Enqueueing Job {job.id} with {len(standardized_spectra)} sample(s) to Celery...")
+            transaction.on_commit(lambda: analyze_soil_spectra.delay(job.id))
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
@@ -211,8 +212,8 @@ class DashboardAnalyticsView(APIView):
             return Response({"error": "Organization context required"}, status=400)
 
         # Separate jobs belonging to this organization
-        # Navigate the relationships: Job -> Field -> Farm -> Organization
-        base_jobs = SoilAnalysisJob.objects.filter(field__farm__organization=org)
+        # Jobs carry their organization directly; filtering through field would drop jobs without a field
+        base_jobs = SoilAnalysisJob.objects.filter(organization=org)
 
         # Time Filter: Jobs created this month
         current_month = timezone.now().month

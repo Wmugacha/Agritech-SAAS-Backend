@@ -11,6 +11,7 @@ class OrganizationMiddleware:
 
     EXEMPT_PATHS = [
         "/admin/",
+        "/healthz",
         "/api/auth/",
         "/api/docs/",
         "/api/schema/",

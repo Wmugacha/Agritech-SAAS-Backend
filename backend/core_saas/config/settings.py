@@ -15,6 +15,8 @@ from pathlib import Path
 
 import dj_database_url
 
+from config.sentry import init_sentry
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -178,6 +180,8 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+# Let the worker use the LOGGING config below (JSON) instead of Celery's own format
+CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 
 # ML inference
 ML_MODEL_PATH = os.getenv("ML_MODEL_PATH", os.path.join(BASE_DIR, "predictions/ml_models/soil_model.pkl"))
@@ -187,19 +191,25 @@ ML_MODEL_VERSION = os.getenv("ML_MODEL_VERSION", "v1.0.0")
 ML_TASK_SOFT_TIME_LIMIT = int(os.getenv("ML_TASK_SOFT_TIME_LIMIT", "120"))
 ML_TASK_TIME_LIMIT = int(os.getenv("ML_TASK_TIME_LIMIT", "150"))
 
+# "json" (default) for production log tools, "text" for human-readable local logs
+LOG_FORMAT = os.getenv("LOG_FORMAT", "json")
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
-        'verbose': {
+        'text': {
             'format': '[{asctime}] {levelname} {name} {message}',
             'style': '{',
+        },
+        'json': {
+            '()': 'config.log_formatters.JsonFormatter',
         },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'formatter': 'json' if LOG_FORMAT == 'json' else 'text',
         },
     },
     'root': {
@@ -208,25 +218,18 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
-        # Explicitly capture your app logs
+        # App loggers propagate to root's console handler
         'predictions': {
-            'handlers': ['console'],
             'level': 'INFO',
-            'propagate': True,
         },
         'organizations': {
-            'handlers': ['console'],
             'level': 'INFO',
-            'propagate': True,
         },
         'subscriptions': {
-            'handlers': ['console'],
             'level': 'INFO',
-            'propagate': True,
         },
     },
 }
@@ -304,3 +307,12 @@ CORS_ALLOWED_ORIGINS = [
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Tell WhiteNoise to compress the files and cache them for speed
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+# --- ERROR MONITORING (Sentry) ---
+init_sentry(
+    dsn=os.getenv("SENTRY_DSN"),
+    environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+    traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0")),
+    release=os.getenv("SENTRY_RELEASE"),
+)

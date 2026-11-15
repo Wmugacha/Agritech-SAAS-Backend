@@ -4,6 +4,7 @@ import sys
 from unittest import mock
 
 import pytest
+import sentry_sdk
 from django.db import OperationalError
 from redis.exceptions import ConnectionError as RedisConnectionError
 
@@ -93,4 +94,8 @@ class TestSentry:
         assert kwargs["environment"] == "staging"
         assert kwargs["send_default_pii"] is False
         assert {type(i).__name__ for i in kwargs["integrations"]} == {"DjangoIntegration", "CeleryIntegration"}
+
+    def test_sentry_is_off_during_tests(self):
+        # Even if SENTRY_DSN is set in the container running pytest
+        assert not sentry_sdk.get_client().is_active()
     

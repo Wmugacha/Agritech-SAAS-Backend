@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 
 import dj_database_url
@@ -308,11 +309,15 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Tell WhiteNoise to compress the files and cache them for speed
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# Skipped under pytest: tests raise errors on purpose, and running them inside a
+# container whose .env has SENTRY_DSN would otherwise report them as real issues.
+RUNNING_TESTS = "pytest" in sys.modules
 
-# --- ERROR MONITORING (Sentry) ---
-init_sentry(
-    dsn=os.getenv("SENTRY_DSN"),
-    environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
-    traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0")),
-    release=os.getenv("SENTRY_RELEASE"),
-)
+if not RUNNING_TESTS:
+    init_sentry(
+        dsn=os.getenv("SENTRY_DSN"),
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0")),
+        release=os.getenv("SENTRY_RELEASE"),
+    )
+    

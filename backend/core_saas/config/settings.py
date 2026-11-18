@@ -35,6 +35,25 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# --- HTTPS BEHIND CADDY ---
+# Caddy terminates TLS and forwards plain HTTP with X-Forwarded-Proto: https.
+# Trusting that header makes request.is_secure() true, so Swagger and redirects use https URLs.
+# Safe only because the app's port is bound to 127.0.0.1 and reachable through Caddy alone.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# e.g. https://agritech.wilfredmugacha.com (needed for admin login and any form POST over HTTPS)
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+# Cookies only over HTTPS in production. Off by default so local http://localhost logins keep working.
+SECURE_COOKIES = os.getenv("SECURE_COOKIES") == "1"
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SECURE = SECURE_COOKIES
+
+
 # Application definition
 
 INSTALLED_APPS = [

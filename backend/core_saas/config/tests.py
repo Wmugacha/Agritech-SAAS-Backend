@@ -98,4 +98,15 @@ class TestSentry:
     def test_sentry_is_off_during_tests(self):
         # Even if SENTRY_DSN is set in the container running pytest
         assert not sentry_sdk.get_client().is_active()
-    
+
+
+class TestHttpsBehindProxy:
+    def test_forwarded_proto_from_caddy_marks_request_secure(self, rf):
+        assert rf.get("/", HTTP_X_FORWARDED_PROTO="https").is_secure()
+        assert not rf.get("/").is_secure()
+
+    def test_swagger_schema_uses_https_behind_proxy(self, api_client):
+        response = api_client.get("/api/schema/", HTTP_X_FORWARDED_PROTO="https", HTTP_ACCEPT="application/json")
+
+        assert response.status_code == 200
+        assert response.wsgi_request.build_absolute_uri("/").startswith("https://")

@@ -1,0 +1,16 @@
+# One Caddy in front of both portfolio apps. Caddy gets and renews Let's Encrypt
+# certificates by itself and redirects http:// to https://.
+# Domains come from the environment (see backend/infra/caddy/docker-compose.yml).
+{
+	email {$ACME_EMAIL}
+}
+
+{$AGRITECH_DOMAIN} {
+	encode gzip
+	reverse_proxy agritech_web:8000
+}
+
+{$NEXUS_DOMAIN} {
+	encode gzip
+	reverse_proxy django_app2:8000
+}

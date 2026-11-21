@@ -1,0 +1,36 @@
+# Reverse proxy for every app on the server. Run it from this folder:
+#   docker compose up -d
+# Needs a .env next to this file with ACME_EMAIL, AGRITECH_DOMAIN and NEXUS_DOMAIN.
+name: caddy
+
+services:
+  caddy:
+    image: caddy:2.8.4
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    env_file:
+      - .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates live here; keep this volume or Caddy re-issues them on every restart
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - portfolio-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  portfolio-network:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:

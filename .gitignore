@@ -69,3 +69,6 @@ endpoints.md
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Trained ML model, mounted into the containers in production
+ml_models/

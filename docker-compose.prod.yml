@@ -1,0 +1,69 @@
+# Production stack for the shared e2-micro (1 GB RAM), next to Nexus.
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Differences from docker-compose.yml (local dev):
+# - Code is baked into the image (no bind mount), containers restart on failure/reboot.
+# - 1 gunicorn worker and Celery --concurrency=1 to fit in memory.
+# - No own Redis: uses Nexus's redis_app2 on DB 1 (Nexus uses DB 0). Set below in x-app.
+# - No Postgres: DATABASE_URL points at Supabase. Set in .env.
+# - Port bound to 127.0.0.1 only: the public reaches it through Caddy on 443.
+# - No stripe-cli: production webhooks come from the Stripe Dashboard endpoint.
+name: agritech
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: backend/infra/Dockerfile
+  image: agritech-backend:latest
+  working_dir: /app/backend/core_saas
+  env_file:
+    - .env
+  environment:
+    # Shared Redis: Nexus's redis_app2 container, database 1 (Nexus uses database 0).
+    # It's part of how the server is wired, not a secret, so it lives here instead of .env.
+    # Values here override the same names in .env.
+    CELERY_BROKER_URL: redis://redis_app2:6379/1
+    CELERY_RESULT_BACKEND: redis://redis_app2:6379/1
+    ML_MODEL_PATH: /ml_models/soil_model.pkl
+  volumes:
+    # The trained model lives on the server, outside git (see deployment guide)
+    - ./ml_models:/models:ro
+  restart: unless-stopped
+  networks:
+    - portfolio-network
+  logging:
+    # Small disk: rotate container logs instead of letting them grow forever
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  web:
+    <<: *app
+    container_name: agritech_web
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000
+             --workers 1 --threads 2 --timeout 60
+             --max-requests 500 --max-requests-jitter 50"
+    ports:
+      - "127.0.0.1:8001:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  worker:
+    <<: *app
+    container_name: agritech_worker
+    # prefork with one child (not --pool=solo) so the task time limits still work
+    command: celery -A config worker --loglevel=info --concurrency=1 --max-tasks-per-child=100
+
+networks:
+  portfolio-network:
+    external: true
+  

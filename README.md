@@ -4,7 +4,7 @@
 
 An enterprise-grade, multi-tenant SaaS backend architecture designed for agricultural cooperatives, agribusinesses, and agronomists to manage farm operations, track crop lifecycle timelines, record agronomic interventions, and execute high-performance predictive soil spectroscopy analytics. Built with Python, Django, Django REST Framework, Celery, and Redis, containerized with Docker, and engineered for high availability and enterprise scale.
 
-[**Live Deployment Link**](http://51.20.119.5:8001/api/docs/) | [**API Documentation (Swagger UI)**](http://51.20.119.5:8001/api/docs/)
+[**Live Deployment Link**](https://agritech.wilfredmugacha.com/api/docs/) | [**API Documentation (Swagger UI)**](https://agritech.wilfredmugacha.com/api/docs/)
 
 ---
 

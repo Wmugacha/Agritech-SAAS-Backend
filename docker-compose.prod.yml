@@ -27,7 +27,7 @@ x-app: &app
     ML_MODEL_PATH: /ml_models/soil_model.pkl
   volumes:
     # The trained model lives on the server, outside git (see deployment guide)
-    - ./ml_models:/models:ro
+    - ./ml_models:/ml_models:ro
   restart: unless-stopped
   networks:
     - portfolio-network

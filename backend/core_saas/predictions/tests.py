@@ -132,8 +132,8 @@ class TestSubmitPrediction:
 
     def test_csv_with_wavelength_header_is_accepted(self, client_for, owner, enqueue):
         wavelengths = np.linspace(3999.053, 600.0723, 50)
-        header = ",".join(f"{w:.3f}" for w in wavelengths) + ",SOM"
-        rows = "\n".join(",".join(["0.45"] * 50) + ",3.1" for _ in range(2))
+        header = ",".join(f"{w:.3f}" for w in wavelengths)  ",SOM"
+        rows = "\n".join(",".join(["0.45"] * 50)  ",3.1" for _ in range(2))
         upload = csv_upload(f"{header}\n{rows}\n")
 
         response = client_for(owner).post(PREDICT_URL, {"spectra_file": upload}, format="multipart")
@@ -145,7 +145,7 @@ class TestSubmitPrediction:
 
     def test_headerless_csv_keeps_its_only_row(self, client_for, owner, enqueue):
         # The old day 12 script wrote one row and no header
-        upload = csv_upload(",".join(["0.45"] * N_FEATURES) + "\n")
+        upload = csv_upload(",".join(["0.45"] * N_FEATURES)  "\n")
 
         response = client_for(owner).post(PREDICT_URL, {"spectra_file": upload}, format="multipart")
 
@@ -270,7 +270,7 @@ class TestTaskReliability:
         with mock.patch.object(SoilAnalysisJob.objects, "get", side_effect=OperationalError("db down")) as get:
             tasks.analyze_soil_spectra.apply(args=[job.id])
 
-        assert get.call_count == tasks.MAX_RETRIES + 1
+        assert get.call_count == tasks.MAX_RETRIES  1
         job.refresh_from_db()
         assert job.status == SoilAnalysisJob.Status.FAILED
         assert job.is_billable is False
@@ -322,7 +322,20 @@ class TestDashboard:
 
         assert response.data["total_samples_all_time"] == 1
         assert response.data["average_som"] == 4.0
-        
+
+    def test_batch_jobs_do_not_break_the_average(self, client_for, org, owner):
+        # A CSV upload stores one SOM value per row as a list; casting that list to a float crashed the dashboard
+        SoilAnalysisJob.objects.create(organization=org, status="SUCCESS", predicted_properties={"SOM": 2.0})
+        SoilAnalysisJob.objects.create(
+            organization=org, status="SUCCESS", predicted_properties={"SOM": [1.0, 9.0], "sample_count": 2}
+        )
+
+        response = client_for(owner).get(DASHBOARD_URL)
+
+        assert response.status_code == 200
+        assert response.data["total_samples_all_time"] == 2
+        assert response.data["average_som"] == 2.0
+
     def test_viewer_can_read_dashboard(self, client_for, org, make_member):
         viewer = make_member(org, Membership.VIEWER)
 
